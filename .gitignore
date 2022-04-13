@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+shipsnet_debug.csv
+.gitignore
+shipsnet_train.csv
+shipsnet_test.csv
