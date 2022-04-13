@@ -1,1 +1,1 @@
-# shipsnet.bite
+# shipsnet
