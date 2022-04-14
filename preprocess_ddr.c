@@ -38,9 +38,10 @@ typedef struct __attribute__((__packed__)) BITMAPINFOHEADER
 }BITMAPINFOHEADER;
 /**
  * @brief 
- * 
- * @param addr 
- * @return unsigned char 
+ * Take an address of a starting image in DDR (theorically) and extract informations from BMP 
+ * header to corresponding structure. Place the image data into an array of corresponding size
+ * @param addr starting address of a BMP file
+ * @return bmpImg array containing the image data as [px1R,px1G,px1B,px2R,px2G,px2B] 
  */
 unsigned char* readImgBmp(int addr) {
     unsigned char *bmpImg;
@@ -98,8 +99,9 @@ unsigned char* readImgBmp(int addr) {
 }
 /**
  * @brief 
- * 
- * @return int 
+ * This function load a BMP file of a fixed size (640*480) into an array
+ * @param testFilename filename
+ * @return unsigned char* pointer to the array
  */
 unsigned char* readImgBmpTest(char *testFilename) {
     FILE *filePtr;  //our file pointer
@@ -120,6 +122,7 @@ unsigned char* readImgBmpTest(char *testFilename) {
     return addr;
 }
 
+
 unsigned char* resizeImg(unsigned char* bmpImg) 
 {
     unsigned char* bmpImgResized;
@@ -137,27 +140,104 @@ unsigned char* resizeImg(unsigned char* bmpImg)
 
 unsigned char* avgPooling(unsigned char* img)
 {
-    // unsigned char* pooledImg;
-    // pooledImg = (unsigned char*) malloc(345600*sizeof(unsigned char));
-    // unsigned char tempPx[3]; 
-    // unsigned char avgPx[230400];
-    // int count = 0;
-    for (int i = 0; i < 48/3; i++)
-    {
-        for (int n=0; n < 48; n+=3)
+    int lengthImgData = 48, poolingLength = 4;
+    int countR = 0, countG = 1, countB = 2, idx=0;
+    int avgR = 0, avgG = 0, avgB = 0;
+    int width = 12, length = 4;
+    int pxR[(length*width)/3], pxG[(length*width)/3], pxB[(length*width)/3];
+    unsigned char count = 0;
+    unsigned char* imgPooled;
+    imgPooled = (unsigned char*) malloc(((width*length)/2)*sizeof(unsigned char));
+    for (int i = 0; i < (width*length)/(3*poolingLength); i)
+    {   
+        for (int n=0; n < poolingLength; n++)
         {
-            printf("boucle rouge :%d\n", n);
+            if (n == 1) 
+            {
+                pxR[idx] = img[countR];
+                pxG[idx] = img[countG];
+                pxB[idx] = img[countB];
+                countR += (width-3);
+                countG += (width-3);
+                countB += (width-3);
+                idx++;
+                continue;
+            }
+            pxR[idx] = img[countR];
+            pxG[idx] = img[countG];
+            pxB[idx] = img[countB];
+            countR += 3;
+            countG += 3;
+            countB += 3;
+            idx++;
         }
-        for (int n=1; n <= 48; n+=3)
+        i++;
+        if (i%2 != 0) 
         {
-            printf("boucle verte :%d\n", n);
-        }
-        for (int n=2; n < 48; n+=3)
-        {
-            printf("boucle bleu :%d\n", n);
-        }
+            countR = width*((i)-0.5);
+            countG = width*((i)-0.5) + 1;
+            countB = width*((i)-0.5) + 2;
+        }         
     }
-    return img;
+    for (int i = 0; i < (width*length)/(3*poolingLength); i++) 
+    {
+        avgR = 0;
+        avgR = 0;
+        avgB = 0;
+        for (int n=0; n < poolingLength; n++)
+        {
+            avgR += pxR[count];
+            avgG += pxG[count];
+            avgB += pxB[count];
+            count++;
+        }
+        avgR = avgR/4;
+        pxR[i] = avgR;
+        avgG = avgG/4;
+        pxG[i] = avgG;
+        avgB = avgB/4;
+        pxB[i] = avgB;
+    }
+    countR = 0;
+    countG = 1;
+    countB = 2;
+    for (int i=0; i< poolingLength; i++) 
+    {
+        imgPooled[countR] = pxR[i];
+        imgPooled[countG] = pxG[i];
+        imgPooled[countB] = pxB[i];
+        countR += 3;
+        countG += 3;
+        countB += 3;
+    }
+    return imgPooled;
+}
+void testavgPooling() 
+{
+    unsigned char tabTest[48] = 
+    {
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0
+    };
+    unsigned char *ret = avgPooling(tabTest);
+    for (int i = 0; i<12; i++)
+    {
+        printf("%d,", ret[i]);
+    }
 }
 
 int main() 
@@ -173,7 +253,6 @@ int main()
     printf("Image data byte 4 : %x, should be 1a\n", bitmapData[3]);
     // unsigned char *imgResized = resizeImg(bitmapData);
     // printf("test : %x\n", imgResized[0]);
-    unsigned char* test;
-    unsigned char *ret = avgPooling(test);
+    testavgPooling();
     return 0; 
 }
