@@ -15,7 +15,7 @@ int write_in_file(char *filename, char *buffer)
 }
 
 /**
- * @brief Write in a buffer one line of a file
+ * @brief Write in a buffer the content of a file
  * 
  * @param filename name of the file
  * @param buffer string buffer with the content
@@ -23,17 +23,38 @@ int write_in_file(char *filename, char *buffer)
  */
 int read_from_file(char *filename, char *buffer)
 {
-    FILE *file = fopen(filename, "r");
-    fgets(buffer,30,file);
-    // int ret = fscanf(file, "%s", buffer);
-    return 0;
+    char *data;
+    int len = 0;
+    if (access(filename, F_OK) == 0)
+    {
+        data = (char *)malloc((unsigned long)fsize(filename) + 1);
+        FILE *fp;
+        fp = fopen(filename, "r");
+        while (fgets(buffer, 1000000, fp))
+        {
+            len += sprintf(data + len, "%s", buffer);
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("ERROR: File %s not found.\n", filename);
+    }
+    return len;
 }
 
-
+unsigned long fsize(char *file)
+{
+    FILE *f = fopen(file, "r");
+    fseek(f, 0, SEEK_END);
+    unsigned long len = (unsigned long)ftell(f);
+    fclose(f);
+    return len;
+}
 
 int main()
 {
-    char * buff = "Bonjour ! \n";
+    char * buff = "Bonjour ! sdasd \n sadad ";
     int ret = write_in_file("export.txt", buff);
 
     char tab[30];
