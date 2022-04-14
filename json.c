@@ -21,13 +21,12 @@ int write_in_file(char *filename, char *buffer)
  * @param buffer string buffer with the content
  * @return int Number of characters read
  */
-int read_from_file(char *filename, char *buffer)
+int read_from_file(char *filename, char *data)
 {
-    char *data;
+    char buffer[1000000];
     int len = 0;
     if (access(filename, F_OK) == 0)
     {
-        data = (char *)malloc((unsigned long)fsize(filename) + 1);
         FILE *fp;
         fp = fopen(filename, "r");
         while (fgets(buffer, 1000000, fp))
@@ -52,14 +51,23 @@ unsigned long fsize(char *file)
     return len;
 }
 
+int get_int_json(char *buffer, char *param){
+    char* ptr = strstr(buffer, param);
+    int sizeParam = sizeof(param) - 1;
+    ptr += sizeParam;
+    return atoi(ptr);
+}
+
 int main()
 {
-    char * buff = "Bonjour ! sdasd \n sadad ";
+    char * buff = "Bonjour ! \n ";
     int ret = write_in_file("export.txt", buff);
 
-    char tab[30];
-    char * buff2 = tab;
-    ret = read_from_file("export.txt", buff2);
-    printf("%s", buff2);
+    char filename[]="example_file.json";
+    char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
+    ret = read_from_file(filename, buff2);
+    printf("%s\n", buff2);
+    int size = get_int_json(buff2, "\"size\"");
+    printf("size = %i\n", size);
     return 0;
 }
