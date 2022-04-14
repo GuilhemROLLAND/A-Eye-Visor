@@ -44,6 +44,8 @@ int read_from_file(char *filename, char *data)
 
 unsigned long fsize(char *file)
 {
+    /* returns file size */
+
     FILE *f = fopen(file, "r");
     fseek(f, 0, SEEK_END);
     unsigned long len = (unsigned long)ftell(f);
@@ -92,7 +94,7 @@ char *get_tab_in_json(char *buffer, char *param)
 char *get_str_in_tab(char *tab, int idx)
 {
     int size;
-    for (int i = 0; i <= idx*2; i++)
+    for (int i = 0; i <= idx * 2; i++)
     {
         while (*tab != '\"')
         {
@@ -104,34 +106,7 @@ char *get_str_in_tab(char *tab, int idx)
         tab++; // Skip "
     }
     char *ret = malloc(sizeof(char) * size);
+    memcpy(ret, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", size+1);
     memcpy(ret, tab, size);
     return ret;
-}
-
-int main()
-{
-    char *buff = "Bonjour ! \n ";
-    int ret = write_in_file("export.txt", buff);
-
-    char filename[] = "example_file.json";
-    char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
-    ret = read_from_file(filename, buff2);
-    printf("%s\n", buff2);
-
-    int size = get_int_in_json(buff2, "size");
-    printf("size = %i\n", size);
-
-    char *str = get_str_in_json(buff2, "string");
-    printf("str = %s\n", str);
-
-    char *tab = get_tab_in_json(buff2, "arch");
-    printf("tab = %s\n", tab);
-
-    for (int i = 0; i < size; i++)
-    {
-        char *str_in_tab = get_str_in_tab(tab, i);
-        printf("str_in_tab at idx %d = %s\n", i, str_in_tab);
-    }
-
-    return 0;
 }
