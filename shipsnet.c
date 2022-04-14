@@ -7,9 +7,11 @@
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
+#include "json.h"
 
 #define DEBUG 1
-#define IMPORTFROMFILE 0
+#define IMPORTARCHFROMJSON 1
+#define LOADDATASET 1
 
 #define WIDTH 224
 #define COLORS 3
@@ -135,17 +137,6 @@ int *getImg(int index)
     return intImg;
 }
 
-unsigned long fsize(char *file)
-{
-    /* returns file size */
-
-    FILE *f = fopen(file, "r");
-    fseek(f, 0, SEEK_END);
-    unsigned long len = (unsigned long)ftell(f);
-    fclose(f);
-    return len;
-}
-
 int getValidInt(int minValue, int maxValue)
 {
     int temp_val;
@@ -191,27 +182,21 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     int rows = 0, removeHeader = 1, removeCol1 = 0;
     double validRatio = 0.2, divideBy = 255, subtractBy = 0;
-    int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
-    printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-    int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-    printf("Loaded %d rows test, %d features\n", test, testColumns);
+    if (LOADDATASET)
+    {
+        int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
+        printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
+        int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+        printf("Loaded %d rows test, %d features\n", test, testColumns);
+    }
 
     /**********************************************************************/
     /*      INIT NET                                                      */
     /**********************************************************************/
-    if (IMPORTFROMFILE)
-    {
-        // TO DO 
-        printf("TO DO\n");
-        return -1;
-    }
-    else
-    {
-        weightScale = 1.414;
-        int net = 5;
-        printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
-        initNet(net);
-    }
+    weightScale = 1.414;
+    int net = 5;
+    printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
+    initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
     for (int i = 1; i < 10; i++)
         len += printf("-%s", layerNames[i]);
@@ -761,14 +746,48 @@ void initNet(int t)
         layers[0] = NULL;
     }
     // SET NEW NET ARCHITECTURE
+
     numLayers = 0;
-    for (i = 0; i < 10; i++)
+
+    if (IMPORTARCHFROMJSON)
     {
-        initArch(nets[t][i], i);
-        sprintf(buf, "L%d", i);
-        if (numLayers == 0 && layerSizes[i] != 0)
-            numLayers = 10 - i;
+        char filename[] = "example_file.json";
+        char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
+        ret = read_from_file(filename, buff2);
+
+        int size = get_int_in_json(buff2, "size");
+
+        char *tab = get_tab_in_json(buff2, "arch");
+
+        char archCNN[size][20];
+        for (int i = 0; i < size; i++)
+        {
+            memcpy(archCNN[i], "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20);
+            char *str_in_tab = get_str_in_tab(tab, i);
+            strcpy(archCNN[i], str_in_tab);
+            free(str_in_tab);
+        }
+        for (i = 0; i < 10; i++)
+        {
+            initArch(archCNN[i], i);
+            sprintf(buf, "L%d", i);
+            if (numLayers == 0 && layerSizes[i] != 0)
+                numLayers = 10 - i;
+        }
     }
+    else
+    {
+        for (i = 0; i < 10; i++)
+        {
+            initArch(nets[t][i], i);
+            sprintf(buf, "L%d", i);
+            if (numLayers == 0 && layerSizes[i] != 0)
+                numLayers = 10 - i;
+        }
+    }
+    sprintf(buf, "L%d", i);
+    if (numLayers == 0 && layerSizes[i] != 0)
+        numLayers = 10 - i;
     // printf("\n");
 
     // ALOCATE MEMORY
