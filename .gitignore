@@ -54,3 +54,5 @@ shipsnet_debug.csv
 .gitignore
 shipsnet_train.csv
 shipsnet_test.csv
+export.txt
+json
