@@ -41,23 +41,25 @@ int main()
     float *weightsTab[10] = {0};
 
     char *tab = get_tab_in_json(buff2, "weights");
-    printf("tab : %s\n", tab);
+    // printf("tab : %s\n", tab);
 
     char *tabintab = tab;
     for (int prof = 0; prof < 3; prof++)
     {
         tabintab = get_tab_in_tab(tabintab,0);
     }
-    printf("tabintab : %s\n", tabintab);
+    // printf("tabintab : %s\n", tabintab);
 
-    char * tab2 = get_tab_in_tab(tabintab,0);
-    printf("tab2 : %s\n", tab2);
+    char * tabOfFloat = get_tab_in_tab(tabintab,0);
+    printf("tabOfFloat : %s\n", tabOfFloat);
     
-    // float valFloat = get_float_in_string(tab, 3);
-    // printf("valFloat = %f\n", valFloat);
+    for (int i =0; i<32; i++){
+        float valFloat = get_float_in_string(tab, i);
+        printf("valFloat = %f\n", valFloat);
+    }
 
-    int valInt = get_int_in_string(tab,1);
-    printf("valInt = %i\n", valInt);
+    // int valInt = get_int_in_string(tab,1);
+    // printf("valInt = %i\n", valInt);
 
     return 0;
 }

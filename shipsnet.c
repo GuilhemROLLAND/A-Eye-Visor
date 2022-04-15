@@ -859,7 +859,7 @@ void initNet(int t)
         else if (layerType[idxLayer] == 1)
         { // CONVOLUTION
             if(IMPORTPARAMFROMJSON){
-                return NULL; // TODO
+                return ; // TODO
             }
             else{
                 for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
