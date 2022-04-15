@@ -50,11 +50,12 @@ int main()
     }
     // printf("tabintab : %s\n", tabintab);
 
-    char * tabOfFloat = get_tab_in_tab(tabintab,0);
-    printf("tabOfFloat : %s\n", tabOfFloat);
-    
+    char * tabOfFloatAsString = get_tab_in_tab(tabintab,0);
+    // printf("tabOfFloatAsString : %s\n", tabOfFloatAsString);
+    float tabFloat[32];
     for (int i =0; i<32; i++){
         float valFloat = get_float_in_string(tab, i);
+        tabFloat[i] = valFloat;
         printf("valFloat = %f\n", valFloat);
     }
 
