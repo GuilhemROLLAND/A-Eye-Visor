@@ -55,13 +55,20 @@ char *get_object_in_json(char *buffer, char *param);
 char *get_str_in_tab(char *tab, int idx);
 
 /**
- * @brief Get the tab in tab object
- *
- * @param tab
- * @return char*
+ * @brief Get the tab in tab with idx object
+ * 
+ * @param tab 
+ * @param idx 
+ * @return char* 
  */
-char *get_tab_in_tab(char *tab);
+char *get_tab_in_tab(char *tab, int idx);
 
+/**
+ * @brief forward the pointer to the beginning of the number
+ * 
+ * @param str 
+ * @return char* 
+ */
 char *go_to_number(char *str);
 
 /**
