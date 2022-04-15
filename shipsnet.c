@@ -11,7 +11,7 @@
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 1
-#define LOADDATASET 1
+#define LOADDATASET 0
 
 #define WIDTH 224
 #define COLORS 3
@@ -728,7 +728,7 @@ void initArch(char *str, int x)
 void initNet(int t)
 {
     // ALLOCATION MEMORY AND INITIALIZE NETWORK WEIGHTS
-    int i, j, same = 1, LL, dd = 9;
+    int i, idxLayer, same = 1, LL, dd = 9;
     char buf[10], buf2[20];
 
     // FREE OLD NET
@@ -813,49 +813,49 @@ void initNet(int t)
     float scale;
     for (i = 0; i < 10; i++)
         layers[i][layerSizes[i] * layerChan[i]] = 1.0;
-    for (j = 1; j < 10; j++)
+    for (idxLayer = 1; idxLayer < 10; idxLayer++)
     {
         scale = 1.0;
-        if (layerSizes[j - 1] != 0)
+        if (layerSizes[idxLayer - 1] != 0)
         {
             // XAVIER INITIALIZATION (= SQRT( 6/(N_in + N_out) ) ) What is N_out to MaxPool ??
-            if (layerType[j] == 0)
+            if (layerType[idxLayer] == 0)
             { // FC LAYER
-                if (layerType[j + 1] == 0)
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[j - 1] * layerChan[j - 1] + layerSizes[j]));
-                else if (layerType[j + 1] == 1) // impossible
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[j - 1] * layerChan[j - 1] + layerConvStep[j + 1]));
-                else if (layerType[j + 1] >= 2) // impossible
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[j - 1] * layerChan[j - 1] + layerSizes[j - 1] * layerChan[j - 1]));
+                if (layerType[idxLayer + 1] == 0)
+                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer]));
+                else if (layerType[idxLayer + 1] == 1) // impossible
+                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerConvStep[idxLayer + 1]));
+                else if (layerType[idxLayer + 1] >= 2) // impossible
+                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]));
             }
-            else if (layerType[j] == 1)
+            else if (layerType[idxLayer] == 1)
             { // CONV LAYER
-                if (layerType[j + 1] == 0)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[j] + layerSizes[j] * layerChan[j]));
-                else if (layerType[j + 1] == 1)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[j] + layerConvStep[j + 1]));
-                else if (layerType[j + 1] >= 2)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[j] + layerConvStep[j]));
+                if (layerType[idxLayer + 1] == 0)
+                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerSizes[idxLayer] * layerChan[idxLayer]));
+                else if (layerType[idxLayer + 1] == 1)
+                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer + 1]));
+                else if (layerType[idxLayer + 1] >= 2)
+                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer]));
             }
             // if (activation==1 && j!=9) scale *= sqrt(2.0); // DO I WANT THIS? INPUT ISN'T MEAN=0
             // printf("Init layer %d: LS=%d LC=%d LCS=%d Scale=%f\n",j,layerSizes[j],layerChan[j],layerConvStep[j],scale);
-            if (j != 9)
+            if (idxLayer != 9)
                 scale *= weightScale;
         }
-        if (layerType[j] == 0)
+        if (layerType[idxLayer] == 0)
         { // FULLY CONNECTED
-            for (i = 0; i < layerSizes[j] * (layerSizes[j - 1] * layerChan[j - 1] + 1); i++)
-                weights[j][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
+            for (i = 0; i < layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1); i++)
+                weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
             // weights[j][i] = 0.1;
-            for (i = 0; i < layerSizes[j]; i++) // set biases to zero
-                weights[j][(layerSizes[j - 1] * layerChan[j - 1] + 1) * (i + 1) - 1] = 0.0;
+            for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
+                weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = 0.0;
         }
-        else if (layerType[j] == 1)
+        else if (layerType[idxLayer] == 1)
         { // CONVOLUTION
-            for (i = 0; i < (layerConvStep[j] + 1) * layerChan[j]; i++)
-                weights[j][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
-            for (i = 0; i < layerChan[j]; i++) // set conv biases to zero
-                weights[j][(layerConvStep[j] + 1) * (i + 1) - 1] = 0.0;
+            for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
+                weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
+            for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
+                weights[idxLayer][(layerConvStep[idxLayer] + 1) * (i + 1) - 1] = 0.0;
         }
     }
 
