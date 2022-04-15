@@ -82,8 +82,16 @@ char *get_tab_in_json(char *buffer, char *param)
     int sizeParam = strlen(param);
     ptr += sizeParam;
     ptr += 2; // skip ":
-    int size = 0;
-    for (size = 0; *(ptr + size) != ']'; size++)
+    int size = 1;
+    int imbrication = 0;
+    for (size = 1; (*(ptr + size) != ']')||(imbrication!=0); size++){
+        if (*(ptr + size) == '['){
+            imbrication++;
+        }
+        if (*(ptr + size) == ']'){
+            imbrication--;
+        }
+    }
         ;
     size++; // Get ]
     char *ret = malloc(sizeof(char) * size);
