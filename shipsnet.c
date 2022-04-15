@@ -11,6 +11,7 @@
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 1
+#define IMPORTPARAMFROMJSON 0
 #define LOADDATASET 0
 
 #define WIDTH 224
@@ -844,18 +845,28 @@ void initNet(int t)
         }
         if (layerType[idxLayer] == 0)
         { // FULLY CONNECTED
-            for (i = 0; i < layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1); i++)
-                weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
-            // weights[j][i] = 0.1;
-            for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
-                weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = 0.0;
+            if (IMPORTPARAMFROMJSON){
+                return ; // TODO
+            }
+            else {
+                for (i = 0; i < layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1); i++)
+                    weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
+                // weights[j][i] = 0.1;
+                for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
+                    weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = 0.0;
+            }
         }
         else if (layerType[idxLayer] == 1)
         { // CONVOLUTION
-            for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
-                weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
-            for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
-                weights[idxLayer][(layerConvStep[idxLayer] + 1) * (i + 1) - 1] = 0.0;
+            if(IMPORTPARAMFROMJSON){
+                return NULL; // TODO
+            }
+            else{
+                for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
+                    weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
+                for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
+                    weights[idxLayer][(layerConvStep[idxLayer] + 1) * (i + 1) - 1] = 0.0;
+            }
         }
     }
 
