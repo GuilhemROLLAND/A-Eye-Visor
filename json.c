@@ -118,3 +118,24 @@ char *get_str_in_tab(char *tab, int idx)
     memcpy(ret, tab, size);
     return ret;
 }
+
+char *get_object_in_json(char *buffer, char *param){
+    char *ptr = strstr(buffer, param);
+    int sizeParam = strlen(param);
+    ptr += sizeParam;
+    ptr += 2; // skip ":
+    int size = 1;
+    int imbrication = 0;
+    for (size = 1; (*(ptr + size) != '}')||(imbrication!=0); size++){
+        if (*(ptr + size) == '{'){
+            imbrication++;
+        }
+        if (*(ptr + size) == '}'){
+            imbrication--;
+        }
+    }
+    size++; // Get }
+    char *ret = malloc(sizeof(char) * size);
+    memcpy(ret, ptr, size);
+    return ret;
+}

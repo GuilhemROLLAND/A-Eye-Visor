@@ -37,6 +37,15 @@ char *get_str_in_json(char *buffer, char *param);
 char *get_tab_in_json(char *buffer, char *param);
 
 /**
+ * @brief Get the object in json object
+ * 
+ * @param buffer 
+ * @param param 
+ * @return char* 
+ */
+char *get_object_in_json(char *buffer, char *param);
+
+/**
  * @brief Get the str in tab object
  * 
  * @param tab 

@@ -28,6 +28,11 @@ int main()
         strcpy(archCNN[i], str_in_tab);
     }
 
-    archCNN;
+    char *weights = get_object_in_json(buff2, "weights");
+    printf("obj = %s\n", weights);
+
+    char *layer2weights = get_tab_in_json(weights, "layer2");
+    printf("layer 2 weigths : %s\n",layer2weights);
+
     return 0;
 }
