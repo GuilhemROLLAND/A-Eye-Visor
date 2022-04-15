@@ -1,52 +1,11 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<sys/stat.h>
-#include<unistd.h>
-#include<dirent.h>
-#include<math.h>
-#include<time.h>
-#include<pthread.h>
-#include <byteswap.h>
+#include "preprocess_ddr.h"
 
-unsigned char img[921600];
-unsigned char payload[50];
 // unsigned char *ptr_img =0x1ffeae00;
 
-typedef struct __attribute__((__packed__)) __attribute__ ((aligned)) BITMAPFILEHEADER
-{
-    unsigned short fType;  //specifies the file type
-    unsigned int fSize;  //specifies the size in bytes of the bitmap file
-    unsigned short fReserved1;  //reserved; must be 0
-    unsigned short fReserved2;  //reserved; must be 0
-    unsigned int fOffBits;  //specifies the offset in bytes from the bitmapfileheader to the bitmap bits
-}BITMAPFILEHEADER;
-
-typedef struct __attribute__((__packed__)) BITMAPINFOHEADER
-{
-    unsigned int size;  //specifies the number of bytes required by the struct
-    unsigned int width;  //specifies width in pixels
-    unsigned int height;  //specifies height in pixels
-    unsigned short planes;  //specifies the number of color planes, must be 1
-    unsigned short bitCount;  //specifies the number of bits per pixel
-    unsigned int compression;  //specifies the type of compression
-    unsigned int sizeImage;  //size of image in bytes
-    unsigned int xPelsPerMeter;  //number of pixels per meter in x axis
-    unsigned int yPelsPerMeter;  //number of pixels per meter in y axis
-    unsigned int clrUsed;  //number of colors used by the bitmap
-    unsigned int clrImportant;  //number of colors that are important
-}BITMAPINFOHEADER;
-/**
- * @brief 
- * Take an address of a starting image in DDR (theorically) and extract informations from BMP 
- * header to corresponding structure. Place the image data into an array of corresponding size
- * @param addr starting address of a BMP file
- * @return bmpImg array containing the image data as [px1R,px1G,px1B,px2R,px2G,px2B] 
- */
-unsigned char* readImgBmp(int addr) {
+unsigned char* readImgBmp(unsigned char* addr) {
     unsigned char *bmpImg;
     unsigned char tempRGB;
-    unsigned char *ptr_img = 0x7fffffed1960;
+    unsigned char *ptr_img = (unsigned char*) addr;
     // initialisation du pointeur mémoire a l'adresse de démarrage
     BITMAPFILEHEADER* ptr_header = (BITMAPFILEHEADER*) ptr_img;
     BITMAPINFOHEADER* ptr_info = (BITMAPINFOHEADER*) (ptr_img +0xe);
@@ -93,62 +52,35 @@ unsigned char* readImgBmp(int addr) {
         bmpImg[i] = bmpImg[i + 2];
         bmpImg[i + 2] = tempRGB;
     }
-
-    
     return bmpImg;
 }
-/**
- * @brief 
- * This function load a BMP file of a fixed size (640*480) into an array
- * @param testFilename filename
- * @return unsigned char* pointer to the array
- */
-unsigned char* readImgBmpTest(char *testFilename) {
-    FILE *filePtr;  //our file pointer
-    BITMAPFILEHEADER bitmapFileHeader;  //our bitmap file header
-    BITMAPINFOHEADER *bitmapInfoHeader;  //our bitmap info header
-    unsigned char *bitmapImage;  //store image data
-    int imageIdx=0;  //image index counter
-    unsigned char tempRGB;  //our swap variable
 
-    //open file in read binary mode
-    filePtr = fopen(testFilename,"rb");
-    if (filePtr == NULL)
-        return NULL;
-
-    unsigned char fileData[1228938];
-    fread(fileData, 1228938, 1, filePtr);
-    unsigned char* addr = &fileData[0];
-    return addr;
-}
-
-
-unsigned char* resizeImg(unsigned char* bmpImg) 
+unsigned char* resizeImg(unsigned char* bmpImg, unsigned char width, unsigned char height, unsigned char pixelsToCrop) 
 {
     unsigned char* bmpImgResized;
-    bmpImgResized = (unsigned char*) malloc(691200*sizeof(unsigned char));
-    for (int n = 0; n < 480; n++)
+    bmpImgResized = (unsigned char*) malloc((width*height*3 - pixelsToCrop*3)*sizeof(unsigned char));
+    for (int n = 0; n < height; n++)
     {
-        for (int i = (80*3+(n*640)*3); i<=((640*3*(n+1))-80*3); i++)
+        for (int i = ((pixelsToCrop/2)*3+(n*width)*3); i<((width*3*(n+1))-(pixelsToCrop/2)*3); i++)
         {
-            bmpImgResized[i-(240+(480*(n)))] = bmpImg[i];
-            //printf("index du tableau : %d, shoud be 691200 in the end\n", i-(240+(480*(n))));
+            bmpImgResized[i-((pixelsToCrop/2)*3+(height*(n)))] = bmpImg[i];
         }
     }
     return bmpImgResized;
 }
 
-unsigned char* avgPooling(unsigned char* img)
+
+
+unsigned char* avgPooling(unsigned char* img,unsigned char width, unsigned char height, unsigned char poolingLength)
 {
-    int lengthImgData = 48, poolingLength = 4;
-    int countR = 0, countG = 1, countB = 2, idx=0;
-    int avgR = 0, avgG = 0, avgB = 0;
-    int width = 12, length = 4;
-    int pxR[(length*width)/3], pxG[(length*width)/3], pxB[(length*width)/3];
+    unsigned char lengthImgData = width * height;
+    unsigned char countR = 0, countG = 1, countB = 2, idx=0;
+    unsigned int avgR = 0, avgG = 0, avgB = 0;
+    unsigned char pxR[(height*width)/3], pxG[(height*width)/3], pxB[(height*width)/3];
     unsigned char count = 0;
     unsigned char* imgPooled;
-    imgPooled = (unsigned char*) malloc(((width*length)/2)*sizeof(unsigned char));
-    for (int i = 0; i < (width*length)/(3*poolingLength); i)
+    imgPooled = (unsigned char*) malloc(((width*height)/2)*sizeof(unsigned char));
+    for (int i = 0; i < (width*height)/(3*poolingLength); i)
     {   
         for (int n=0; n < poolingLength; n++)
         {
@@ -179,7 +111,7 @@ unsigned char* avgPooling(unsigned char* img)
             countB = width*((i)-0.5) + 2;
         }         
     }
-    for (int i = 0; i < (width*length)/(3*poolingLength); i++) 
+    for (int i = 0; i < (width*height)/(3*poolingLength); i++) 
     {
         avgR = 0;
         avgR = 0;
@@ -212,47 +144,23 @@ unsigned char* avgPooling(unsigned char* img)
     }
     return imgPooled;
 }
-void testavgPooling() 
+
+/**
+ * @brief Performs a rescaling on the pixels value. Change values from [0;255] to [0;1]
+ * 
+ * @param img input img stored as [pxR1,pxG1,pxB1,pxR2,pxG2,pxB2, ...]
+ * @param height height of the image
+ * @param width width of the image. must be *3 if the image is RGB 
+ * @return float* 
+ */
+float* rescaling(unsigned char* img, unsigned char height, unsigned char width)  
 {
-    unsigned char tabTest[48] = 
+    float* imgRescaled = (float*) malloc(height*width*sizeof(float));
+    for (int i = 0; i < height*width*3; i++)
     {
-    0,0,254,
-    0,0,0,
-    0,0,0,
-    254,0,0,
-    0,0,254,
-    0,0,0,
-    0,0,0,
-    254,0,0,
-    0,0,254,
-    0,0,0,
-    0,0,0,
-    254,0,0,
-    0,0,254,
-    0,0,0,
-    0,0,0,
-    254,0,0
-    };
-    unsigned char *ret = avgPooling(tabTest);
-    for (int i = 0; i<12; i++)
-    {
-        printf("%d,", ret[i]);
+        imgRescaled[i] =(float) img[i]/255;
     }
+    return imgRescaled;
 }
 
-int main() 
-{
-    char *testFilename = "pict.bmp";
-    unsigned char* addr = readImgBmpTest(testFilename); 
-    printf("addr: %p \n", addr);
-    unsigned char *bitmapData = readImgBmp(addr);
-    printf("addresse de depart du tableau de valeurs d'image : %p\n", bitmapData);
-    printf("Image data byte 1 : %x, should be 1a\n", bitmapData[0]);
-    printf("Image data byte 2 : %x, should be 2C\n", bitmapData[1]);
-    printf("Image data byte 3 : %x, should be 74\n", bitmapData[2]);
-    printf("Image data byte 4 : %x, should be 1a\n", bitmapData[3]);
-    // unsigned char *imgResized = resizeImg(bitmapData);
-    // printf("test : %x\n", imgResized[0]);
-    testavgPooling();
-    return 0; 
-}
+
