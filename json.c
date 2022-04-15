@@ -225,20 +225,32 @@ int get_size_of_int(char *str)
     return size;
 }
 
-float get_float_in_string(char *str)
+float get_float_in_string(char *str, int idx)
 {
-    str = go_to_number(str);
-    int size = get_size_of_float(str);
+    int size = 0;
+    for(int i; i<=idx; i++){
+        str = go_to_number(str);
+        size = get_size_of_float(str);
+        if (i != idx){
+            str += size + 1;
+        }
+    }
     char *buff[size];
     memcpy(buff, str, size);
     float val = atof((const char *)buff);
     return val;
 }
 
-int get_int_in_string(char *str)
+int get_int_in_string(char*str, int idx)
 {
-    str = go_to_number(str);
-    int size = get_size_of_int(str);
+    int size = 0;
+    for(int i; i<=idx; i++){
+        str = go_to_number(str);
+        size = get_size_of_int(str);
+        if (i != idx){
+            str += size + 1;
+        }
+    }
     char *buff[size];
     memcpy(buff, str, size);
     int val = atoi((const char *)buff);

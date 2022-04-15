@@ -50,14 +50,14 @@ int main()
     }
     printf("tabintab : %s\n", tabintab);
 
-    char * tab2 = get_tab_in_tab(tabintab,1);
+    char * tab2 = get_tab_in_tab(tabintab,0);
     printf("tab2 : %s\n", tab2);
     
-    // float valFloat = get_float_in_string(tab);
+    // float valFloat = get_float_in_string(tab, 3);
     // printf("valFloat = %f\n", valFloat);
 
-    // int valInt = get_int_in_string(tab);
-    // printf("valInt = %i\n", valInt);
+    int valInt = get_int_in_string(tab,1);
+    printf("valInt = %i\n", valInt);
 
     return 0;
 }
