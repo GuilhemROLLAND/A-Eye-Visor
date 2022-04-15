@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include "json.h"
 
-#define DEBUG 1
+#define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 1
 #define LOADDATASET 1
 
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     /*      ACTIVATION                                                    */
     /**********************************************************************/
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("Please choose your activation type where 0=Identity, 1=ReLU, 2=TanH :\n");
         activation = getValidInt(0, 2);
@@ -216,35 +216,35 @@ int main(int argc, char *argv[])
     /*      DATA AUGMENTATION                                             */
     /**********************************************************************/
     // AUGMENT RATIO
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose a ratio for data augment (value between 0,1)\n");
         augmentRatio = getValidFloat(0.0, 1.0);
     }
 
     // SCALE
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose a scale for data augment (value between 0,1)\n");
         augmentScale = getValidFloat(0.0, 1.0);
     }
 
     // ANGLE
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose a angle for data augment (value between 0-360)\n");
         augmentAngle = getValidInt(0, 360);
     }
 
     // DX
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose a DX for data augment (value between 0,10)\n");
         augmentDx = getValidFloat(0.0, 10.0);
     }
 
     // DY
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose a DY for data augment (value between 0,10)\n");
         augmentDy = getValidFloat(0.0, 10.0);
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     int res;
     // learn
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please choose an initial learning rate\n");
         learn = getValidFloat(0.0000000001, 1000.0);
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
     printf("Learning rate set to %f\n", learn);
 
     // min scale
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please enter a min scale, ex 0.95\n");
         scaleMin = getValidFloat(0.01, 1);
@@ -274,7 +274,7 @@ int main(int argc, char *argv[])
     printf("Min scale set to %f\n", scaleMin);
 
     // max scale
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please enter a max scale, ex 1.0\n");
         scaleMax = getValidFloat(0.01, 1);
@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
     printf("Max scale set to %f\n", scaleMax);
 
     // decay
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please enter a decay, ex 0.95\n");
         decay = getValidFloat(0.01, 1);
@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
 
     // epoch
     int epoch = 20;
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please enter an epoch number\n");
         epoch = getValidInt(1, 1000);
@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 
     // display rate
     int displayRate = 1;
-    if (!DEBUG)
+    if (!USEDEBUGPARAM)
     {
         printf("please enter a display rate\n");
         displayRate = getValidInt(0, 1000);
