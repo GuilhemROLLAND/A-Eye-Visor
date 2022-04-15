@@ -6,6 +6,7 @@
             "command": "/usr/bin/gcc-5",
             "args": [
                 "json.c",
+                "preprocess_ddr.c",
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",

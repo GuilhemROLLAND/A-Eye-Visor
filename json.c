@@ -56,6 +56,10 @@ unsigned long fsize(char *file)
 int get_int_in_json(char *buffer, char *param)
 {
     char *ptr = strstr(buffer, param);
+    if (ptr == NULL)
+    {
+        return -1;
+    }
     int sizeParam = strlen(param);
     ptr += sizeParam;
     ptr += 2; // Skip ":
@@ -65,6 +69,10 @@ int get_int_in_json(char *buffer, char *param)
 char *get_str_in_json(char *buffer, char *param)
 {
     char *ptr = strstr(buffer, param);
+    if (ptr == NULL)
+    {
+        return NULL;
+    }
     int sizeParam = strlen(param);
     ptr += sizeParam;
     ptr += 3; // skip ":"
@@ -79,20 +87,29 @@ char *get_str_in_json(char *buffer, char *param)
 char *get_tab_in_json(char *buffer, char *param)
 {
     char *ptr = strstr(buffer, param);
+    if (ptr == NULL)
+    {
+        return NULL;
+    }
     int sizeParam = strlen(param);
     ptr += sizeParam;
-    ptr += 2; // skip ":
+    while ((*ptr) != '[')
+    {
+        ptr++;
+    }
     int size = 1;
     int imbrication = 0;
-    for (size = 1; (*(ptr + size) != ']')||(imbrication!=0); size++){
-        if (*(ptr + size) == '['){
+    for (size = 1; (*(ptr + size) != ']') || (imbrication != 0); size++)
+    {
+        if (*(ptr + size) == '[')
+        {
             imbrication++;
         }
-        if (*(ptr + size) == ']'){
+        if (*(ptr + size) == ']')
+        {
             imbrication--;
         }
-    }
-        ;
+    };
     size++; // Get ]
     char *ret = malloc(sizeof(char) * size);
     memcpy(ret, ptr, size);
@@ -114,23 +131,27 @@ char *get_str_in_tab(char *tab, int idx)
         tab++; // Skip "
     }
     char *ret = malloc(sizeof(char) * size);
-    memcpy(ret, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", size+1);
+    memcpy(ret, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", size + 1);
     memcpy(ret, tab, size);
     return ret;
 }
 
-char *get_object_in_json(char *buffer, char *param){
+char *get_object_in_json(char *buffer, char *param)
+{
     char *ptr = strstr(buffer, param);
     int sizeParam = strlen(param);
     ptr += sizeParam;
     ptr += 2; // skip ":
     int size = 1;
     int imbrication = 0;
-    for (size = 1; (*(ptr + size) != '}')||(imbrication!=0); size++){
-        if (*(ptr + size) == '{'){
+    for (size = 1; (*(ptr + size) != '}') || (imbrication != 0); size++)
+    {
+        if (*(ptr + size) == '{')
+        {
             imbrication++;
         }
-        if (*(ptr + size) == '}'){
+        if (*(ptr + size) == '}')
+        {
             imbrication--;
         }
     }
@@ -138,4 +159,75 @@ char *get_object_in_json(char *buffer, char *param){
     char *ret = malloc(sizeof(char) * size);
     memcpy(ret, ptr, size);
     return ret;
+}
+
+char *get_tab_in_tab(char *tab)
+{
+    tab++;
+    while ((*tab) != '[')
+    {
+        tab++;
+    }
+    int size = 1;
+    int imbrication = 0;
+    for (size = 1; (*(tab + size) != ']') || (imbrication != 0); size++)
+    {
+        if (*(tab + size) == '[')
+        {
+            imbrication++;
+        }
+        if (*(tab + size) == ']')
+        {
+            imbrication--;
+        }
+    }
+    size++; // Get ]
+    char *ret = malloc(sizeof(char) * size);
+    memcpy(ret, tab, size);
+    return ret;
+}
+
+char *go_to_number(char *str){
+    while((((*str)<'0')||((*str)>'9'))&&((*str)!='-')){
+        str++;
+    }
+    return str;
+}
+
+int get_size_of_float(char *str){
+    int size = 0;
+    while (!((((*str)<'0')||((*str)>'9'))&&((*str)!='-')&&((*str)!='.')))
+    {
+        str++;
+        size++;
+    }
+    return size;
+}
+
+int get_size_of_int(char *str){
+    int size = 0;
+    while (!((((*str)<'0')||((*str)>'9'))&&((*str)!='-')))
+    {
+        str++;
+        size++;
+    }
+    return size;
+}
+
+float get_float_in_string(char*str){
+    str = go_to_number(str);
+    int size = get_size_of_float(str);
+    char *buff[size];
+    memcpy(buff, str, size);
+    float val = atof((const char *)buff);
+    return val;
+}
+
+int get_int_in_string(char*str){
+    str = go_to_number(str);
+    int size = get_size_of_int(str);
+    char *buff[size];
+    memcpy(buff, str, size);
+    int val = atoi((const char *)buff);
+    return val;
 }
