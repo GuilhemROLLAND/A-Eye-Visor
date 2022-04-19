@@ -7,6 +7,14 @@ int write_in_file(char *filename, char *buffer);
 int read_from_file(char *filename, char *buffer);
 unsigned long fsize(char *file);
 
+/**
+ * @brief forward the pointer to the beginning of the number
+ * 
+ * @param str 
+ * @return char* 
+ */
+char *go_to_number(char *str);
+
 // GETTERS
 
 /**
@@ -55,14 +63,13 @@ char *get_object_in_json(char *buffer, char *param);
 char *get_str_in_tab(char *tab, int idx);
 
 /**
- * @brief Get the tab in tab object
- *
- * @param tab
- * @return char*
+ * @brief Get the tab in tab with idx object
+ * 
+ * @param tab 
+ * @param idx 
+ * @return char* 
  */
-char *get_tab_in_tab(char *tab);
-
-char *go_to_number(char *str);
+char *get_tab_in_tab(char *tab, int idx);
 
 /**
  * @brief Get the size of float object
@@ -84,8 +91,15 @@ int get_size_of_int(char *str);
  * @brief Get the float in string object
  * 
  * @param str 
+ * @param idx 
  * @return float 
  */
-float get_float_in_string(char*str);
+float get_float_in_string(char *str, int idx);
 
-int get_int_in_string(char*str);
+/**
+ * @brief Get the int in string object
+ * 
+ * @param str 
+ * @return int 
+ */
+int get_int_in_string(char*str, int idx);

@@ -161,24 +161,31 @@ char *get_object_in_json(char *buffer, char *param)
     return ret;
 }
 
-char *get_tab_in_tab(char *tab)
+char *get_tab_in_tab(char *tab, int idx)
 {
     tab++;
-    while ((*tab) != '[')
-    {
-        tab++;
-    }
     int size = 1;
-    int imbrication = 0;
-    for (size = 1; (*(tab + size) != ']') || (imbrication != 0); size++)
+    for (int i = 0; i <= idx; i++)
     {
-        if (*(tab + size) == '[')
+        while ((*tab) != '[')
         {
-            imbrication++;
+            tab++;
         }
-        if (*(tab + size) == ']')
+        int imbrication = 0;
+        for (size = 1; (*(tab + size) != ']') || (imbrication != 0); size++)
         {
-            imbrication--;
+            if (*(tab + size) == '[')
+            {
+                imbrication++;
+            }
+            if (*(tab + size) == ']')
+            {
+                imbrication--;
+            }
+        }
+        if (i != idx)
+        {
+            tab += size + 1;
         }
     }
     size++; // Get ]
@@ -187,16 +194,19 @@ char *get_tab_in_tab(char *tab)
     return ret;
 }
 
-char *go_to_number(char *str){
-    while((((*str)<'0')||((*str)>'9'))&&((*str)!='-')){
+char *go_to_number(char *str)
+{
+    while ((((*str) < '0') || ((*str) > '9')) && ((*str) != '-'))
+    {
         str++;
     }
     return str;
 }
 
-int get_size_of_float(char *str){
+int get_size_of_float(char *str)
+{
     int size = 0;
-    while (!((((*str)<'0')||((*str)>'9'))&&((*str)!='-')&&((*str)!='.')))
+    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-') && ((*str) != '.')))
     {
         str++;
         size++;
@@ -204,9 +214,10 @@ int get_size_of_float(char *str){
     return size;
 }
 
-int get_size_of_int(char *str){
+int get_size_of_int(char *str)
+{
     int size = 0;
-    while (!((((*str)<'0')||((*str)>'9'))&&((*str)!='-')))
+    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-')))
     {
         str++;
         size++;
@@ -214,18 +225,32 @@ int get_size_of_int(char *str){
     return size;
 }
 
-float get_float_in_string(char*str){
-    str = go_to_number(str);
-    int size = get_size_of_float(str);
+float get_float_in_string(char *str, int idx)
+{
+    int size = 0;
+    for(int i; i<=idx; i++){
+        str = go_to_number(str);
+        size = get_size_of_float(str);
+        if (i != idx){
+            str += size + 1;
+        }
+    }
     char *buff[size];
     memcpy(buff, str, size);
     float val = atof((const char *)buff);
     return val;
 }
 
-int get_int_in_string(char*str){
-    str = go_to_number(str);
-    int size = get_size_of_int(str);
+int get_int_in_string(char*str, int idx)
+{
+    int size = 0;
+    for(int i; i<=idx; i++){
+        str = go_to_number(str);
+        size = get_size_of_int(str);
+        if (i != idx){
+            str += size + 1;
+        }
+    }
     char *buff[size];
     memcpy(buff, str, size);
     int val = atoi((const char *)buff);
