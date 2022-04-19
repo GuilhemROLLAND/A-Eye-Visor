@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
     int rows = 0, removeHeader = 1, removeCol1 = 0;
-    double validRatio = 0.8, divideBy = 255, subtractBy = 0;
+    double validRatio = 0.2, divideBy = 255, subtractBy = 0;
     if (LOADDATASET)
     {
         int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
