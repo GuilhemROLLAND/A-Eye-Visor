@@ -95,7 +95,6 @@ int cDigits[MAXLAYER][MAXLAYER][54];
 int showAcc = 1;
 int showEnt = 1;
 int showCon = 0;
-int showDig[3][55] = {{0}};
 float scaleMin = 0.9, scaleMax = 1.0;
 // DOT DATA
 const int maxDots = 250;
@@ -875,7 +874,6 @@ void initNet(int t)
     if (isDigits(inited) != 1)
     {
         showCon = 0;
-        showDig[0][0] = 0;
     }
 }
 
