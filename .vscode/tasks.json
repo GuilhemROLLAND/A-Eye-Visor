@@ -12,7 +12,29 @@
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
                 "-lpthread",
-                "-lm",
+                "-lm"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "Tâche générée par le débogueur."
+        },
+        {
+            "type": "cppbuild",
+            "label": "C/C++: gcc générer le fichier actif",
+            "command": "/usr/bin/gcc",
+            "args": [
+                "json.c",
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "-lm"
             ],
             "options": {
                 "cwd": "${fileDirname}"

@@ -13,10 +13,10 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define TESTONONE 0
+#define TESTONONE 1
 #define INFERENCEMODE 1
 #define SAVEVALUES 0
-#define DISPLAYTIME 0
+#define DISPLAYTIME 1
 char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
@@ -184,8 +184,6 @@ int main(int argc, char *argv[])
     if (argc > 1)
         printf("Ignoring unknown argument(s)\n");
     srand(time(0));
-    pthread_attr_init(&stackSizeAttribute);
-    pthread_attr_setstacksize(&stackSizeAttribute, requiredStackSize);
 
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
@@ -211,11 +209,14 @@ int main(int argc, char *argv[])
     weightScale = 1.414;
     int net = 2;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
+    clock_t start, stop;
+    start = clock();
     initNet(net);
+    stop = clock();
     int len = printf("Architecture (%s", layerNames[0]);
     for (int i = 1; i < MAXLAYER; i++)
         len += printf("-%s", layerNames[i]);
-    printf(")\n");
+    printf(") in %.3f\n", ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
 
     /**********************************************************************/
     /*      ACTIVATION                                                    */
@@ -1722,8 +1723,8 @@ int forwardProp(int image, int dp, int train, int lay)
             float weight = weights[MAXLAYER - 1][iIn * (layerSizes[MAXLAYER - 1]) + iOut];
             sum += val * weight;
         }
-        //Bias
-        sum += weights[MAXLAYER - 1][layerSizes[MAXLAYER - 1]*layerSizes[MAXLAYER - 2] + iOut];
+        // Bias
+        sum += weights[MAXLAYER - 1][layerSizes[MAXLAYER - 1] * layerSizes[MAXLAYER - 2] + iOut];
         layers[MAXLAYER - 1][iOut] = exp(sum);
         if (layers[MAXLAYER - 1][iOut] > 1e30)
             return -1; // GRADIENTS EXPLODED
