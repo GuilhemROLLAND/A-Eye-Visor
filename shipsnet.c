@@ -184,11 +184,6 @@ int main(int argc, char *argv[])
     if (argc > 1)
         printf("Ignoring unknown argument(s)\n");
     srand(time(0));
-<<<<<<< HEAD
-=======
-    // pthread_attr_init(&stackSizeAttribute);
-    // pthread_attr_setstacksize(&stackSizeAttribute, requiredStackSize);
->>>>>>> f2387dcd295330eea6051dd77256374788788c57
 
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
