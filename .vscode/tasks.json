@@ -6,7 +6,7 @@
             "command": "/usr/bin/gcc",
             "args": [
                 "json.c",
-                // "preprocess.c",
+                "preprocess.c",
                 "-fdiagnostics-color=always",
                 "-pg",
                 "${file}",

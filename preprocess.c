@@ -7,7 +7,7 @@ unsigned char* readImg(unsigned char* addr, int width, int height) {
     unsigned char *ptr_img = (unsigned char*) addr;
     if ((img = malloc((width*height*3) * sizeof(unsigned char))) == NULL)
         printf("erreur allocation mémoire \n");
-    img[0] = ptr_img;
+    img = ptr_img;
     return img;   
 }
 
@@ -316,14 +316,28 @@ void encodageBMP(unsigned char* addr, int width, int height) {
     fclose(imageFile);
 }
 
-unsigned char* preprocess(char *filename)
+int encodeInCSV(unsigned char *img, int length)
+{
+    FILE* file =  fopen("temp.csv", "wb");
+    if (file == NULL)
+    {
+        printf("erreur d'ouverture du fichier\n");
+        return -1;
+    }
+    fwrite(img, length, 1, file);
+    return 0; 
+}
+
+void preprocess(char *filename)
 {
     BITMAPINFOHEADER *bitmapinfoheader;
     unsigned char *img = LoadBitmapFile(filename, bitmapinfoheader);
+    encodageBMP(img, 640, 480);
     unsigned char *resizedimg = resizeImg(img, 640, 480, 160);
     free(img);
     unsigned char *pooledImg = maxPooling(resizedimg, 480, 480, 2);
     free(resizedimg);
-    encodageBMP(pooledImg, 640, 480);
-    return pooledImg;
+    encodeInCSV(pooledImg, 172800);
+    free(pooledImg);
 }
+
