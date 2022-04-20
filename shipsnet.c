@@ -13,11 +13,11 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define TESTONONE 1
+#define TESTONONE 0
 #define INFERENCEMODE 1
 #define SAVEVALUES 0
-#define DISPLAYTIME 1
-char filename[] = "rescal_fl32_96.json";
+#define DISPLAYTIME 0
+char filename[] = "weights_shipsnet_wo_rescale.json";
 
 #define WIDTH 224
 #define COLORS 3
