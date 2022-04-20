@@ -38,3 +38,7 @@ Process pooling 17 in 0.000244 (<1%)
 Process fully connected 18 in 0.000853 (<1%)  
 Process Output layer 19 in 0.000012 (<1%)  
 Process 1/1 pics (1.755841 sec/pic) with 100.00 good predictions  
+
+## On Zybo's Data
+534 secs to load weights and biases  
+44 secs to process one picture  
