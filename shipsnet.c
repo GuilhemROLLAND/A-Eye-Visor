@@ -9,6 +9,7 @@
 #include <time.h>
 #include <pthread.h>
 #include "json.h"
+#include "preprocess.h"
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 1
@@ -357,6 +358,7 @@ int main(int argc, char *argv[])
             }
             if (LOADDATASET)
             {
+                preprocess("../temp.bmp");
                 printf("Load train Set with validRatio = %f\n", validRatio);
                 int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
                 printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);

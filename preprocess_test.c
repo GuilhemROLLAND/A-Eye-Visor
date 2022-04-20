@@ -160,6 +160,18 @@ void testavgPooling()
         printf("test avgPooling unsuccessfull\n");
 }
 
+void testEncodeCSV() 
+{
+    unsigned char tab[] = {1,2,3,4};
+    int size = encodeInCSV((unsigned char *)&tab, 4);
+    if (size == 7)
+        printf("testEncodeCSV successfull\n");
+    else 
+        printf("testEncodeCSV unsuccessfull\n");
+
+}
+
+
 void testMaxPooling() 
 {
     unsigned char tabTest[48] = 
@@ -203,6 +215,8 @@ int main()
     testResize();
     testRescaling();
     testMaxPooling();
+    testEncodeCSV();
+    preprocess("../temp.bmp");
     return 0; 
 }
 
