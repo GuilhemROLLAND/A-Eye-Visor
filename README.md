@@ -1,5 +1,8 @@
 # A-Eye Visor
 
+## Signal command
+pkill --signal SIGUSR1 shipsnet  
+
 ## Status
 | Name                 | Status | Comments                          |
 | :------------------- | :----- | :-------------------------------- |

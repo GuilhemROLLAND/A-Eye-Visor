@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -13,8 +14,9 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define TESTONONE 0
+#define TESTONONE 1
 #define INFERENCEMODE 1
+#define WAITFORSIGNAL 1
 #define SAVEVALUES 0
 #define DISPLAYTIME 0
 char filename[] = "weights_shipsnet_wo_rescale.json";
@@ -178,6 +180,31 @@ float getValidFloat(float minValue, float maxValue)
     return temp_val;
 }
 
+int waitOnSIGUSR1Signal(void)
+{
+    sigset_t set;
+    int sig;
+    int *sigptr = &sig;
+    int ret_val;
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+    printf("Waiting for a SIGUSR1 signal\n");
+
+    ret_val = sigwait(&set, sigptr);
+    if (ret_val == -1)
+        perror("sigwait failed\n");
+    else
+    {
+        if (*sigptr == SIGUSR1)
+            printf("SIGUSR1 was received\n");
+        else
+            printf("sigwait returned with sig: %d\n", *sigptr);
+    }
+    return *sigptr;
+}
+
 /**********************************************************************/
 /*      MAIN ROUTINE                                                  */
 /**********************************************************************/
@@ -196,14 +223,6 @@ int main(int argc, char *argv[])
     if (TESTONONE)
     {
         validRatio = 1.;
-    }
-    if (LOADDATASET)
-    {
-        printf("Load train Set with validRatio = %f\n", validRatio);
-        int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
-        printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-        // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-        // printf("Loaded %d rows test, %d features\n", test, testColumns);
     }
 
     /**********************************************************************/
@@ -329,7 +348,24 @@ int main(int argc, char *argv[])
     printf("Running \n");
     if (INFERENCEMODE)
     {
-        runInference(NULL);
+        while (1)
+        {
+            if (WAITFORSIGNAL)
+            {
+                while (waitOnSIGUSR1Signal() != SIGUSR1)
+                    ;
+            }
+            if (LOADDATASET)
+            {
+                printf("Load train Set with validRatio = %f\n", validRatio);
+                int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
+                printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
+                // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+                // printf("Loaded %d rows test, %d features\n", test, testColumns);
+            }
+            printf("start processing \n");
+            runInference(NULL);
+        }
     }
     else
     {
@@ -368,7 +404,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     char name[80] = "shipsnet_train.csv";
     if (TESTONONE)
     {
-        strcpy(name, "shipsnet_one_V2.csv");
+        strcpy(name, "shipsnet_one_240.csv");
     }
     printf("Loading %s\n", name);
     if (access(name, F_OK) == 0)
