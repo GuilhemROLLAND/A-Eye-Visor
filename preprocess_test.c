@@ -160,6 +160,41 @@ void testavgPooling()
         printf("test avgPooling unsuccessfull\n");
 }
 
+void testMaxPooling() 
+{
+    unsigned char tabTest[48] = 
+    {
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0,
+    0,0,254,
+    0,0,0,
+    0,0,0,
+    254,0,0
+    };
+    unsigned char *ret = maxPooling(tabTest, 12, 4, 4);
+    unsigned char result[12] = {0,0,254,254,0,0,0,0,254,254,0,0};
+    int count = 0;
+    for (int i = 0; i<12; i++)
+    {
+        if (ret[i] == result[i]) 
+            count++;
+    }
+    if (count == 12)
+        printf("test maxPooling successfull\n");
+    else 
+        printf("test maxPooling unsuccessfull\n");
+}
+
 
 int main() 
 {
@@ -167,6 +202,7 @@ int main()
     testavgPooling();
     testResize();
     testRescaling();
+    testMaxPooling();
     return 0; 
 }
 

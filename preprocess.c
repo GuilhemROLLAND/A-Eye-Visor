@@ -159,16 +159,16 @@ unsigned char* maxPooling(unsigned char* img, int width, int height, unsigned ch
     }
     for (int i = 0; i < (width*height)/(3*poolingLength); i++) 
     {
+        maxR = 0;
+        maxG = 0;
+        maxB = 0;
         for (int n=0; n < poolingLength; n++)
         {
-            
-            maxG += pxG[count];
-            maxB += pxB[count];
-            if (maxR > pxR[count])
+            if (pxR[count] > maxR)
                 maxR = pxR[count];
-            if (maxG > pxG[count])
+            if (pxG[count] > maxG)
                 maxG = pxG[count];
-            if (maxB > pxB[count])
+            if (pxB[count] > maxB)
                 maxB = pxB[count];
             count++;
         }
