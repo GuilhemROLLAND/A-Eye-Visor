@@ -25,7 +25,7 @@ void testReadImgBmp() {
     unsigned char fileData[1228938];
     fread(fileData, 1228938, 1, filePtr);
 
-    unsigned char* ret = readImgBmp(&fileData[0]); 
+    unsigned char* ret = readImg(&fileData[0], 640, 480); 
     unsigned char result[4] = {0x1a, 0x2c, 0x74, 0x1a};
     int count = 0;
     for (int i =0; i<4; i++)
@@ -106,8 +106,8 @@ void testRescaling()
     float resultTab[9] =
     {
     1,1,1,
-    0.2,0.2,0.2,
-    0,0,0
+    -0.6,-0.6,-0.6,
+    -1,-1,-1
     };
     int count = 0;
     float *ret = rescaling(testImg, 1,3);

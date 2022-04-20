@@ -6,6 +6,7 @@
             "command": "/usr/bin/gcc-5",
             "args": [
                 "json.c",
+                "preprocess.c",
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
@@ -29,6 +30,7 @@
             "command": "/usr/bin/gcc",
             "args": [
                 "json.c",
+                "preprocess.c",
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
