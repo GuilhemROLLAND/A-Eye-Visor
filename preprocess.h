@@ -14,7 +14,7 @@
     #ifndef H_BITMAPFILEHEADER
     #define H_BITMAPFILEHEADER
     
-    typedef struct __attribute__((__packed__)) __attribute__ ((aligned)) BITMAPFILEHEADER
+    typedef struct __attribute__((__packed__)) BITMAPFILEHEADER
     {
         unsigned short fType;  //specifies the file type
         unsigned int fSize;  //specifies the size in bytes of the bitmap file

@@ -168,7 +168,6 @@ void testEncodeCSV()
         printf("testEncodeCSV successfull\n");
     else 
         printf("testEncodeCSV unsuccessfull\n");
-
 }
 
 
@@ -210,12 +209,12 @@ void testMaxPooling()
 
 int main() 
 {
-    testReadImgBmp();
-    testavgPooling();
-    testResize();
-    testRescaling();
-    testMaxPooling();
-    testEncodeCSV();
+    // testReadImgBmp();
+    // testavgPooling();
+    // testResize();
+    // testRescaling();
+    // testMaxPooling();
+    // testEncodeCSV();
     preprocess("../temp.bmp");
     return 0; 
 }
