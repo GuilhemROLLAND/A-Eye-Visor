@@ -130,11 +130,11 @@ unsigned char *avgPooling(unsigned char *img, int width, int height, unsigned ch
                     for (int iHautIn = 0; iHautIn < poolingLength; iHautIn++)
                     {
                         int idxIn = (poolingLength * iHautOut + iHautIn) * width * colors + (poolingLength * iLargOut + iLargIn) * colors + iColor;
-                            sum += img[idxIn];
+                        sum += img[idxIn];
                     }
                 }
                 int idxOut = iHautOut * colors * width / poolingLength + iLargOut * colors + iColor;
-                imgPooled[idxOut] = sum / (poolingLength*poolingLength);
+                imgPooled[idxOut] = sum / (poolingLength * poolingLength);
             }
     return imgPooled;
 }
@@ -181,69 +181,6 @@ unsigned char *maxPooling(unsigned char *img, int width, int height, unsigned ch
                 int idxOut = iHautOut * colors * width / poolingLength + iLargOut * colors + iColor;
                 imgPooled[idxOut] = pmax;
             }
-
-    // for (int i = 0; i < (width * height) / (3 * poolingLength); i)
-    // {
-    //     for (int n = 0; n < poolingLength; n++)
-    //     {
-    //         if (n == 1)
-    //         {
-    //             pxR[idx] = img[countR];
-    //             pxG[idx] = img[countG];
-    //             pxB[idx] = img[countB];
-    //             countR += (width - 3);
-    //             countG += (width - 3);
-    //             countB += (width - 3);
-    //             idx++;
-    //             continue;
-    //         }
-    //         pxR[idx] = img[countR];
-    //         pxG[idx] = img[countG];
-    //         pxB[idx] = img[countB];
-    //         countR += 3;
-    //         countG += 3;
-    //         countB += 3;
-    //         idx++;
-    //     }
-    //     i++;
-    //     if (i % 2 != 0)
-    //     {
-    //         countR = width * ((i)-0.5);
-    //         countG = width * ((i)-0.5) + 1;
-    //         countB = width * ((i)-0.5) + 2;
-    //     }
-    // }
-    // for (int i = 0; i < (width * height) / (3 * poolingLength); i++)
-    // {
-    //     maxR = 0;
-    //     maxG = 0;
-    //     maxB = 0;
-    //     for (int n = 0; n < poolingLength; n++)
-    //     {
-    //         if (pxR[count] > maxR)
-    //             maxR = pxR[count];
-    //         if (pxG[count] > maxG)
-    //             maxG = pxG[count];
-    //         if (pxB[count] > maxB)
-    //             maxB = pxB[count];
-    //         count++;
-    //     }
-    //     pxR[i] = maxR;
-    //     pxG[i] = maxG;
-    //     pxB[i] = maxB;
-    // }
-    // countR = 0;
-    // countG = 1;
-    // countB = 2;
-    // for (int i = 0; i < poolingLength; i++)
-    // {
-    //     imgPooled[countR] = pxR[i];
-    //     imgPooled[countG] = pxG[i];
-    //     imgPooled[countB] = pxB[i];
-    //     countR += 3;
-    //     countG += 3;
-    //     countB += 3;
-    // }
     return imgPooled;
 }
 
@@ -351,7 +288,8 @@ void encodageBMP(unsigned char *addr, int width, int height)
     FILE *imageFile = fopen("temp.bmp", "wb");
     fwrite(fileheader, sizeof(BITMAPFILEHEADER), 1, imageFile);
     fwrite(infoheader, sizeof(BITMAPINFOHEADER), 1, imageFile);
-
+    free(fileheader);
+    free(infoheader);
     // Ecriture des données de l'image dans le fichier avec inversion des couleurs
     int n = 2;
     for (int i = 0; i < width * height; i++)
@@ -391,7 +329,9 @@ int encodeInCSV(unsigned char *img, int length)
         }
     }
     fwrite(tab, (int)ptr - (int)tab, 1, file);
-    return (int)ptr - (int)tab;
+    int size = (int)ptr - (int)tab;
+    free(tab);
+    return size;
 }
 
 void preprocess(char *filename)
@@ -400,11 +340,12 @@ void preprocess(char *filename)
     if ((bitmapinfoheader = malloc(sizeof(BITMAPINFOHEADER))) == NULL)
         printf("erreur allocation memoire\n");
     unsigned char *img = LoadBitmapFile(filename, bitmapinfoheader);
+    free(bitmapinfoheader);
     unsigned char *resizedimg = resizeImg(img, 640, 480, 160);
     free(img);
     unsigned char *pooledImg = maxPooling(resizedimg, 480, 480, 2);
     free(resizedimg);
-    encodageBMP(pooledImg, 240,240);
+    encodageBMP(pooledImg, 240, 240);
     encodeInCSV(pooledImg, 172800);
     free(pooledImg);
 }

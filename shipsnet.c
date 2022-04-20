@@ -21,7 +21,7 @@
 #define INFERENCE 1
 #define SAVEVALUES 0
 #define DISPLAYTIME 0
-char filename[] = "weights_shipsnet_wo_rescale.json";
+char weights_file[] = "weights_airbus_240_88.json";
 
 #define WIDTH 240
 #define COLORS 3
@@ -830,8 +830,8 @@ void initNet(int t)
 
     if (IMPORTARCHFROMJSON)
     {
-        char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
-        ret = read_from_file(filename, buff2);
+        char *buff2 = (char *)malloc((unsigned long)fsize(weights_file) + 1);
+        ret = read_from_file(weights_file, buff2);
 
         int size = get_int_in_json(buff2, "size");
 
@@ -898,8 +898,8 @@ void initNet(int t)
         layers[i][layerSizes[i] * layerChan[i]] = 1.0;
     if (IMPORTPARAMFROMJSON)
     {
-        char *bufFile = (char *)malloc((unsigned long)fsize(filename) + 1);
-        int ret = read_from_file(filename, bufFile);
+        char *bufFile = (char *)malloc((unsigned long)fsize(weights_file) + 1);
+        int ret = read_from_file(weights_file, bufFile);
         printf("Size of parameters' file : %d\n", ret);
         weightsStr = get_object_in_json(bufFile, "weights");
         free(bufFile);
@@ -1334,7 +1334,7 @@ void *runForwardProp(void *arg)
         start = clock();
         int pred;
         if (INFERENCE)
-            pred = forwardProp(testImages[idxImage], 0, 0, 0);
+            pred = forwardProp(idxImage, 0, 0, 0);
         else
             pred = forwardProp(validSet[idxImage], 0, 1, 0);
         stop = clock();
@@ -1371,7 +1371,6 @@ void *runForwardProp(void *arg)
         fflush(stdout);
     }
     printf("\n");
-    entropy2 = entropy2 / validSetSize;
 }
 
 /**********************************************************************/
