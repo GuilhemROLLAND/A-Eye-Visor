@@ -8,6 +8,8 @@
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <sys/types.h>
 #include "json.h"
 #include "preprocess.h"
 
@@ -1334,9 +1336,22 @@ void *runForwardProp(void *arg)
         start = clock();
         int pred;
         if (INFERENCE)
+        {
             pred = forwardProp(idxImage, 0, 0, 0);
-        else
-            pred = forwardProp(validSet[idxImage], 0, 1, 0);
+            int fd;
+            if ((fd = open("/home/root/CommunicationModule/IAtoINT", O_WRONLY)) == -1)
+            {
+                printf("erreur d'ouverture du pipe\n");
+                return NULL;
+            }
+            if (write(fd, &pred, sizeof(pred)) == -1)
+            {
+                printf("erreur d'ecriture\n");
+                return NULL;
+            }
+            close(fd);
+        } 
+        else pred = forwardProp(validSet[idxImage], 0, 1, 0);
         stop = clock();
         if (pred == -1)
         {
@@ -1357,14 +1372,14 @@ void *runForwardProp(void *arg)
             working = 0;
             return NULL;
         }
-        if(!INFERENCE)
+        if (!INFERENCE)
             entropy2 -= log(layers[MAXLAYER - 1][pred]);
         if (working == 0)
         {
             printf("learning stopped early\n");
             pthread_exit(NULL);
         }
-        if(!INFERENCE)
+        if (!INFERENCE)
             printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
         else
             printf("Process %d/%d pics (%f sec/pic) with pred = %d \r", idxImage + 1, testSizeI, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, pred);
