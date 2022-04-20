@@ -105,7 +105,7 @@
      * @param *bitmapinfoheader 
      * @return img in unsigned char[]
      */
-    unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader)
+    unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader);
     
     /**
      * @brief Execute the global preprocess of an img (loading, resize, pooling)
@@ -114,4 +114,14 @@
      * @return unsigned char* the preprocessed img
      */
     unsigned char* preprocess(char *filename);
+
+    /**
+     * @brief Save the input image into a BMP file named temp.bmp
+     * 
+     * @param addr starting address the img data
+     * @param width width of the img
+     * @param height height of the img
+     */
+    void encodageBMP(unsigned char *addr, int width, int height);
+
 #endif
