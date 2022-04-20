@@ -146,7 +146,7 @@ void testavgPooling()
     0,0,0,
     254,0,0
     };
-    unsigned char *ret = avgPooling(tabTest, 12, 4, 4);
+    unsigned char *ret = avgPooling(tabTest, 4, 4, 2);
     unsigned char result[12] = {0,0,127,127,0,0,0,0,127,127,0,0};
     int count = 0;
     for (int i = 0; i<12; i++)
@@ -210,12 +210,12 @@ void testMaxPooling()
 int main() 
 {
     // testReadImgBmp();
-    // testavgPooling();
+    testavgPooling();
     // testResize();
     // testRescaling();
     // testMaxPooling();
     // testEncodeCSV();
-    preprocess("../temp.bmp");
+    // preprocess("../temp.bmp");
     return 0; 
 }
 

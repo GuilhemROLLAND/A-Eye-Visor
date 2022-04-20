@@ -54,68 +54,88 @@ unsigned char *avgPooling(unsigned char *img, int width, int height, unsigned ch
     unsigned char *imgPooled;
     if ((imgPooled = (unsigned char *)malloc(((width * height) / 2) * sizeof(unsigned char))) == NULL)
         printf("erreur allocation mémoire \n");
-    for (int i = 0; i < (width * height) / (3 * poolingLength); i)
-    {
-        for (int n = 0; n < poolingLength; n++)
-        {
-            if (n == 1)
+    // for (int i = 0; i < (width * height) / (3 * poolingLength); i)
+    // {
+    //     for (int n = 0; n < poolingLength; n++)
+    //     {
+    //         if (n == 1)
+    //         {
+    //             pxR[idx] = img[countR];
+    //             pxG[idx] = img[countG];
+    //             pxB[idx] = img[countB];
+    //             countR += (width - 3);
+    //             countG += (width - 3);
+    //             countB += (width - 3);
+    //             idx++;
+    //             continue;
+    //         }
+    //         pxR[idx] = img[countR];
+    //         pxG[idx] = img[countG];
+    //         pxB[idx] = img[countB];
+    //         countR += 3;
+    //         countG += 3;
+    //         countB += 3;
+    //         idx++;
+    //     }
+    //     i++;
+    //     if (i % 2 != 0)
+    //     {
+    //         countR = width * ((i)-0.5);
+    //         countG = width * ((i)-0.5) + 1;
+    //         countB = width * ((i)-0.5) + 2;
+    //     }
+    // }
+    // for (int i = 0; i < (width * height) / (3 * poolingLength); i++)
+    // {
+    //     avgR = 0;
+    //     avgR = 0;
+    //     avgB = 0;
+    //     for (int n = 0; n < poolingLength; n++)
+    //     {
+    //         avgR += pxR[count];
+    //         avgG += pxG[count];
+    //         avgB += pxB[count];
+    //         count++;
+    //     }
+    //     avgR = avgR / 4;
+    //     pxR[i] = avgR;
+    //     avgG = avgG / 4;
+    //     pxG[i] = avgG;
+    //     avgB = avgB / 4;
+    //     pxB[i] = avgB;
+    // }
+    // countR = 0;
+    // countG = 1;
+    // countB = 2;
+    // for (int i = 0; i < poolingLength; i++)
+    // {
+    //     imgPooled[countR] = pxR[i];
+    //     imgPooled[countG] = pxG[i];
+    //     imgPooled[countB] = pxB[i];
+    //     countR += 3;
+    //     countG += 3;
+    //     countB += 3;
+    // }
+    // return imgPooled;
+
+    int colors = 3;
+    int sum = 0;
+    for (int iColor = 0; iColor < colors; iColor++)
+        for (int iLargOut = 0; iLargOut < width / poolingLength; iLargOut++)
+            for (int iHautOut = 0; iHautOut < height / poolingLength; iHautOut++)
             {
-                pxR[idx] = img[countR];
-                pxG[idx] = img[countG];
-                pxB[idx] = img[countB];
-                countR += (width - 3);
-                countG += (width - 3);
-                countB += (width - 3);
-                idx++;
-                continue;
+                sum = 0;
+                for (int iLargIn = 0; iLargIn < poolingLength; iLargIn++)
+                {
+                    for (int iHautIn = 0; iHautIn < poolingLength; iHautIn++)
+                    {
+                        int idxIn = (poolingLength * iHautOut + iHautIn) * width * colors + (poolingLength * iLargOut + iLargIn) * colors + iColor;
+                            sum += img[idxIn];
+                    }
+                }
+                int idxOut = iHautOut * colors * width / poolingLength + iLargOut * colors + iColor;
+                imgPooled[idxOut] = sum / (poolingLength*poolingLength);
             }
-            pxR[idx] = img[countR];
-            pxG[idx] = img[countG];
-            pxB[idx] = img[countB];
-            countR += 3;
-            countG += 3;
-            countB += 3;
-            idx++;
-        }
-        i++;
-        if (i % 2 != 0)
-        {
-            countR = width * ((i)-0.5);
-            countG = width * ((i)-0.5) + 1;
-            countB = width * ((i)-0.5) + 2;
-        }
-    }
-    for (int i = 0; i < (width * height) / (3 * poolingLength); i++)
-    {
-        avgR = 0;
-        avgR = 0;
-        avgB = 0;
-        for (int n = 0; n < poolingLength; n++)
-        {
-            avgR += pxR[count];
-            avgG += pxG[count];
-            avgB += pxB[count];
-            count++;
-        }
-        avgR = avgR / 4;
-        pxR[i] = avgR;
-        avgG = avgG / 4;
-        pxG[i] = avgG;
-        avgB = avgB / 4;
-        pxB[i] = avgB;
-    }
-    countR = 0;
-    countG = 1;
-    countB = 2;
-    for (int i = 0; i < poolingLength; i++)
-    {
-        imgPooled[countR] = pxR[i];
-        imgPooled[countG] = pxG[i];
-        imgPooled[countB] = pxB[i];
-        countR += 3;
-        countG += 3;
-        countB += 3;
-    }
     return imgPooled;
 }
 

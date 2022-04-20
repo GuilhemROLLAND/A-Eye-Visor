@@ -16,8 +16,9 @@
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
 #define TESTONONE 1
-#define INFERENCEMODE 1
+#define FORWARDONLY 1
 #define WAITFORSIGNAL 1
+#define INFERENCE 1
 #define SAVEVALUES 0
 #define DISPLAYTIME 0
 char filename[] = "weights_shipsnet_wo_rescale.json";
@@ -39,7 +40,7 @@ void randomizeTrainSet();
 void randomizeValidSet();
 void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t);
 void *runBackProp(void *arg);
-void *runInference(void *arg);
+void *runForwardProp(void *arg);
 int backProp(int x, float *ent, int ep);
 int forwardProp(int x, int dp, int train, int lay);
 float ReLU(float x);
@@ -347,7 +348,7 @@ int main(int argc, char *argv[])
     printf("Display rate set to %d\n", displayRate);
 
     printf("Running \n");
-    if (INFERENCEMODE)
+    if (FORWARDONLY)
     {
         while (1)
         {
@@ -358,15 +359,22 @@ int main(int argc, char *argv[])
             }
             if (LOADDATASET)
             {
-                preprocess("../temp.bmp");
-                printf("Load train Set with validRatio = %f\n", validRatio);
-                int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
-                printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-                // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-                // printf("Loaded %d rows test, %d features\n", test, testColumns);
+                if (INFERENCE)
+                {
+                    preprocess("../temp.bmp");
+                    printf("Load test Set \n");
+                    int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+                    printf("Loaded %d rows test, %d features\n", test, testColumns);
+                }
+                else
+                {
+                    printf("Load train Set with validRatio = %f\n", validRatio);
+                    int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
+                    printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
+                }
             }
             printf("start processing \n");
-            runInference(NULL);
+            runForwardProp(NULL);
         }
     }
     else
@@ -537,7 +545,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
 /**********************************************************************/
 /*      LOAD DATA                                                     */
 /**********************************************************************/
-int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
+int loadTest(int ct, int sh, int removeCol1, float imgScale, float imgBias)
 {
     char *data;
     // LOAD TEST DATA FROM FILE
@@ -548,7 +556,7 @@ int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
     float rnd;
     // READ IN TEST.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_test.csv";
+    char name[80] = "../temp.csv";
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((int)fsize(name) + 1);
@@ -600,7 +608,7 @@ int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
     if (data[j] != '\n' || data[j] != '\r')
         j++;
     testColumns = c + 1;
-    if (rc == 1)
+    if (removeCol1 == 1)
     {
         testColumns--;
         mark = -1;
@@ -638,7 +646,7 @@ int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
                 mark++;
             i = j + mark;
             mark = 0;
-            if (rc == 1)
+            if (removeCol1 == 1)
                 mark = -1;
         }
         else
@@ -1306,20 +1314,29 @@ void *runBackProp(void *arg)
     return NULL;
 }
 
-void *runInference(void *arg)
+void *runForwardProp(void *arg)
 {
-    randomizeValidSet();
+    if (!INFERENCE)
+        randomizeValidSet();
     working = 1;
     int s2 = 0;
     int entropy2 = 0;
     int confusion[MAXLAYER][MAXLAYER] = {{0}};
     int entSize = 0, accSize = 0, ent2Size = 0, acc2Size = 0;
 
+#if INFERENCE == 1
+    for (int idxImage = 0; idxImage < testSizeI; idxImage++)
+#else
     for (int idxImage = 0; idxImage < validSetSize; idxImage++)
+#endif
     {
         clock_t start, stop;
         start = clock();
-        int pred = forwardProp(validSet[idxImage], 0, 1, 0);
+        int pred;
+        if (INFERENCE)
+            pred = forwardProp(testImages[idxImage], 0, 0, 0);
+        else
+            pred = forwardProp(validSet[idxImage], 0, 1, 0);
         stop = clock();
         if (pred == -1)
         {
@@ -1327,28 +1344,34 @@ void *runInference(void *arg)
             working = 0;
             return NULL;
         }
-        if (pred == trainDigits[validSet[idxImage]])
-            s2++;
-        cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
-        confusion[trainDigits[validSet[idxImage]]][pred]++;
+        if (!INFERENCE)
+        {
+            if (pred == trainDigits[validSet[idxImage]])
+                s2++;
+            cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
+            confusion[trainDigits[validSet[idxImage]]][pred]++;
+        }
         if (layers[MAXLAYER - 1][pred] == 0)
         {
             printf("Test vanished.\n");
             working = 0;
             return NULL;
         }
-        entropy2 -= log(layers[MAXLAYER - 1][pred]);
+        if(!INFERENCE)
+            entropy2 -= log(layers[MAXLAYER - 1][pred]);
         if (working == 0)
         {
             printf("learning stopped early\n");
             pthread_exit(NULL);
         }
-        printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
+        if(!INFERENCE)
+            printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
+        else
+            printf("Process %d/%d pics (%f sec/pic) \r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
         fflush(stdout);
     }
     printf("\n");
     entropy2 = entropy2 / validSetSize;
-    printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
 }
 
 /**********************************************************************/
