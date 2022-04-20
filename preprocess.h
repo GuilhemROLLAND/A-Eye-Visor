@@ -108,15 +108,6 @@
     unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader);
     
     /**
-     * @brief Execute the global preprocess of an img 
-     * (loading, resize, pooling and produce a temp.bmp in original dimensions
-     * and a temp.csv in AI dimensions)
-     * 
-     * @param filename path to the img
-     */
-    void preprocess(char *filename);
-
-    /**
      * @brief Save the input image into a BMP file named temp.bmp
      * 
      * @param addr starting address the img data
@@ -133,5 +124,16 @@
      * @return int -1 if failed, else 0
      */
     int encodeInCSV(unsigned char * img, int length);
+
+    /**
+     * @brief Execute the global preprocess of an img 
+     * (loading, resize, pooling and produce a temp.bmp in original dimensions
+     * and a temp.csv in AI dimensions)
+     * 
+     * @param filename path to the img
+     */
+    void preprocess(char *filename);
+
+
 
 #endif

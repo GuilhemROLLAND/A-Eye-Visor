@@ -8,7 +8,7 @@
                 "json.c",
                 "preprocess.c",
                 "-fdiagnostics-color=always",
-                "-pg",
+                "-g",
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",

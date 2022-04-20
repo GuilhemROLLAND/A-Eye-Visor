@@ -2,5 +2,6 @@
 
 int main()
 {
+    printf("start\n");
     preprocess("pict.bmp");
 }

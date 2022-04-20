@@ -331,6 +331,8 @@ int encodeInCSV(unsigned char *img, int length)
 void preprocess(char *filename)
 {
     BITMAPINFOHEADER *bitmapinfoheader;
+    if((bitmapinfoheader = malloc(sizeof(BITMAPINFOHEADER))) == NULL)
+        printf("erreur allocation memoire\n");
     unsigned char *img = LoadBitmapFile(filename, bitmapinfoheader);
     encodageBMP(img, 640, 480);
     unsigned char *resizedimg = resizeImg(img, 640, 480, 160);
