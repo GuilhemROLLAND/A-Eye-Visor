@@ -111,8 +111,9 @@ char *get_tab_in_json(char *buffer, char *param)
         }
     };
     size++; // Get ]
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = malloc(sizeof(char) * size + 1);
     memcpy(ret, ptr, size);
+    *(ret + sizeof(char) * size) = 0;
     return ret;
 }
 
@@ -131,8 +132,8 @@ char *get_str_in_tab(char *tab, int idx)
         tab++; // Skip "
     }
     char *ret = malloc(sizeof(char) * size);
-    memcpy(ret, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", size + 1);
     memcpy(ret, tab, size);
+    *(ret + sizeof(char) * size) = 0;
     return ret;
 }
 
@@ -228,10 +229,12 @@ int get_size_of_int(char *str)
 float get_float_in_string(char *str, int idx)
 {
     int size = 0;
-    for(int i; i<=idx; i++){
+    for (int i; i <= idx; i++)
+    {
         str = go_to_number(str);
         size = get_size_of_float(str);
-        if (i != idx){
+        if (i != idx)
+        {
             str += size + 1;
         }
     }
@@ -241,13 +244,15 @@ float get_float_in_string(char *str, int idx)
     return val;
 }
 
-int get_int_in_string(char*str, int idx)
+int get_int_in_string(char *str, int idx)
 {
     int size = 0;
-    for(int i; i<=idx; i++){
+    for (int i; i <= idx; i++)
+    {
         str = go_to_number(str);
         size = get_size_of_int(str);
-        if (i != idx){
+        if (i != idx)
+        {
             str += size + 1;
         }
     }
