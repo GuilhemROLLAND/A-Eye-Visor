@@ -1,101 +1,244 @@
-/*
- * Copyright (c) 2001-2003 Swedish Institute of Computer Science.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
- * SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
- * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
- *
- * This file is part of the lwIP TCP/IP stack.
- *
- * Author: Adam Dunkels <adam@sics.se>
- *
- */
+#include "tcp.h"
+#include "ip4_addr.h"
+#include "ip_addr.h"
+#include "tcpbase.h"
+
 #include "tcp_server.h"
 
-#include "lwip/opt.h"
+err_t err;
+static struct tcp_pcb *tcp_pcb;
+struct tcp_pcb *pcb;
+const ip_addr_t *localIP = IP4_ADDR_ANY;
+u16_t port = 1028;
 
-#if LWIP_NETCONN
 
-#include "lwip/sys.h"
-#include "lwip/api.h"
-/*-----------------------------------------------------------------------------------*/
-static void
-tcpecho_thread(void *arg,struct netconn *newconn)
+
+
+// init
+void initTCP(void)
 {
-  struct netconn *conn;
-  err_t err;
-  LWIP_UNUSED_ARG(arg);
+    lwip_init();
+    sys_check_timeouts();
+    tcp_tmr();
 
-  /* Create a new connection identifier. */
-  /* Bind connection to well known port number 7. */
-#if LWIP_IPV6
-  conn = netconn_new(NETCONN_TCP);
-  netconn_bind(conn, IP4_ADDR_ANY, 7);
-#else /* LWIP_IPV6 */
-  conn = netconn_new(NETCONN_TCP);
-  netconn_bind(conn, IP_ADDR_ANY, 7);
-#endif /* LWIP_IPV6 */
-  LWIP_ERROR("tcpecho: invalid conn", (conn != NULL), return;);
+    tcp_pcb = tcp_new_ip_type(IPADDR_TYPE_V4);
 
-  /* Tell connection to go into listening mode. */
-  netconn_listen(conn);
+    if (tcp_pcb != NULL)
+    {
+        err_t err;
 
-  while (1) {
-
-    /* Grab new connection. */
-    err = netconn_accept(conn, &newconn);
-    /*printf("accepted new connection %p\n", newconn);*/
-    /* Process the new connection. */
-    if (err == ERR_OK) {
-      struct netbuf *buf;
-      void *data;
-      u16_t len;
-
-      while ((err = netconn_recv(newconn, &buf)) == ERR_OK) {
-        /*printf("Recved\n");*/
-        do {
-             netbuf_data(buf, &data, &len);
-             err = netconn_write(newconn, data, len, NETCONN_COPY);
-#if 0
-            if (err != ERR_OK) {
-              printf("tcpecho: netconn_write: error \"%s\"\n", lwip_strerr(err));
-            }
-#endif
-        } while (netbuf_next(buf) >= 0);
-        netbuf_delete(buf);
-      }
-      /*printf("Got EOF, looping\n");*/
-      /* Close connection and discard connection identifier. */
-      netconn_close(newconn);
-      netconn_delete(newconn);
+        err = tcp_bind(tcp_pcb, IP4_ADDR_ANY, 7);
+        if (err == ERR_OK)
+        {
+            tcp_pcb = tcp_listen(tcp_pcb);
+            tcp_accept(tcp_pcb, tcp_pcb);
+        }
     }
-  }
 }
-/*-----------------------------------------------------------------------------------*/
-void
-tcpecho_init(void)
-{
-  sys_thread_new("tcpecho_thread", tcpecho_thread, NULL, DEFAULT_THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
-}
-/*-----------------------------------------------------------------------------------*/
 
-#endif /* LWIP_NETCONN */
+
+static err_t sentTCP(void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
+    struct tcp_state *es;
+
+    LWIP_UNUSED_ARG(len);
+
+    es = (struct tcp_state *)arg;
+    es->retries = 0;
+
+    if (es->p != NULL)
+    {
+        /* still got pbufs to send */
+        tcp_sent(tpcb, sentTCP);
+        sendTCP(tpcb, es);
+    }
+    else
+    {
+        /* no more pbufs to send */
+        if (es->state == ES_CLOSING)
+        {
+            closeTCP(tpcb, es);
+        }
+    }
+    return ERR_OK;
+}
+
+static void sendTCP(struct tcp_pcb *tpcb, struct tcp_state *es)
+{
+    struct pbuf *ptr;
+    err_t wr_err = ERR_OK;
+
+    while ((wr_err == ERR_OK) &&
+           (es->p != NULL) &&
+           (es->p->len <= tcp_sndbuf(tpcb)))
+    {
+        ptr = es->p;
+
+        /* enqueue data for transmission */
+        wr_err = tcp_write(tpcb, ptr->payload, ptr->len, 1);
+        if (wr_err == ERR_OK)
+        {
+            u16_t plen;
+
+            plen = ptr->len;
+            /* continue with next pbuf in chain (if any) */
+            es->p = ptr->next;
+            if (es->p != NULL)
+            {
+                /* new reference! */
+                pbuf_ref(es->p);
+            }
+            /* chop first pbuf from chain */
+            pbuf_free(ptr);
+            /* we can read more data now */
+            tcp_recved(tpcb, plen);
+        }
+        else if (wr_err == ERR_MEM)
+        {
+            /* we are low on memory, try later / harder, defer to poll */
+            es->p = ptr;
+        }
+        else
+        {
+            /* other problem ?? */
+        }
+    }
+}
+
+static void closeTCP(struct tcp_pcb *tpcb, struct tcp_state *es)
+{
+  tcp_arg(tpcb, NULL);
+  tcp_sent(tpcb, NULL);
+  tcp_recv(tpcb, NULL);
+  tcp_err(tpcb, NULL);
+  tcp_poll(tpcb, NULL, 0);
+
+  freeTCP(es);
+
+  tcp_close(tpcb);
+}
+
+static void errorTCP(void *arg, err_t err)
+{
+  struct tcp_state *es;
+
+  LWIP_UNUSED_ARG(err);
+
+  es = (struct tcp_state *)arg;
+
+  freeTCP(es);
+}
+
+static err_t recvTCP(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+  struct tcp_state *es;
+  err_t ret_err;
+
+  LWIP_ASSERT("arg != NULL",arg != NULL);
+  es = (struct tcp_state *)arg;
+  if (p == NULL) {
+    /* remote host closed connection */
+    es->state = ES_CLOSING;
+    if(es->p == NULL) {
+      /* we're done sending, close it */
+     closeTCP(tpcb, es);
+    } else {
+      /* we're not done yet */
+      sendTCP(tpcb, es);
+    }
+    ret_err = ERR_OK;
+  } else if(err != ERR_OK) {
+    /* cleanup, for unknown reason */
+    LWIP_ASSERT("no pbuf expected here", p == NULL);
+    ret_err = err;
+  }
+  else if(es->state == ES_ACCEPTED) {
+    /* first data chunk in p->payload */
+    es->state = ES_RECEIVED;
+    /* store reference to incoming pbuf (chain) */
+    es->p = p;
+    sendTCP(tpcb, es);
+    ret_err = ERR_OK;
+  } else if (es->state == ES_RECEIVED) {
+    /* read some more data */
+    if(es->p == NULL) {
+      es->p = p;
+      sendTCP(tpcb, es);
+    } else {
+      struct pbuf *ptr;
+
+      /* chain pbufs to the end of what we recv'ed previously  */
+      ptr = es->p;
+      pbuf_cat(ptr,p);
+    }
+    ret_err = ERR_OK;
+  } else {
+    /* unknown es->state, trash data  */
+    tcp_recved(tpcb, p->tot_len);
+    pbuf_free(p);
+    ret_err = ERR_OK;
+  }
+  return ret_err;
+}
+
+static err_t pollTCP(void *arg, struct tcp_pcb *tpcb)
+{
+  err_t ret_err;
+  struct tcp_state *es;
+
+  es = (struct tcp_state *)arg;
+  if (es != NULL) {
+    if (es->p != NULL) {
+      /* there is a remaining pbuf (chain)  */
+      sendTCP(tpcb, es);
+    } else {
+      /* no remaining pbuf (chain)  */
+      if(es->state == ES_CLOSING) {
+        closeTCP(tpcb, es);
+      }
+    }
+    ret_err = ERR_OK;
+  } else {
+    /* nothing to be done */
+    tcp_abort(tpcb);
+    ret_err = ERR_ABRT;
+  }
+  return ret_err;
+}
+
+
+static err_t acceptTCP(void *arg, struct tcp_pcb *newpcb, err_t err)
+{
+  err_t ret_err;
+  struct tcp_state *es;
+
+  LWIP_UNUSED_ARG(arg);
+  if ((err != ERR_OK) || (newpcb == NULL)) {
+    return ERR_VAL;
+  }
+
+  /* Unless this pcb should have NORMAL priority, set its priority now.
+     When running out of pcbs, low priority pcbs can be aborted to create
+     new pcbs of higher priority. */
+  tcp_setprio(newpcb, TCP_PRIO_MIN);
+
+  es = (struct tcp_state *)mem_malloc(sizeof(struct tcp_state));
+  if (es != NULL) {
+    es->state = ES_ACCEPTED;
+    es->pcb = newpcb;
+    es->retries = 0;
+    es->p = NULL;
+    /* pass newly allocated es to our callbacks */
+    tcp_arg(newpcb, es);
+    tcp_recv(newpcb, recvTCP);
+    tcp_err(newpcb, errorTCP);
+    tcp_poll(newpcb, pollTCP, 0);
+    tcp_sent(newpcb, sentTCP);
+    ret_err = ERR_OK;
+  } else {
+    ret_err = ERR_MEM;
+  }
+  return ret_err;
+}
+
+
