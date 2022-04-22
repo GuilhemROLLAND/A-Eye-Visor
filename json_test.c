@@ -69,16 +69,18 @@ int main()
 
     char *weights = get_object_in_json(buff2, "weights");
 
-    char *layer1 = get_tab_in_json(weights, "layer1");
-    printf("layer1 : %s\n", layer1);
-
-    char *layer2 = get_tab_in_json(weights, "layer2");
-    printf("layer2 : %s\n", layer2);
+    for (int idx = 0; idx <= 11; idx ++){
+        char label[30];
+        sprintf(label, "layer%i", idx);
+        char *layer = get_tab_in_json(weights, label);
+        sprintf(label, "layers/layer%d.json", idx);
+        write_in_file(label, layer);
+        printf("size of layer%i param : %i\n", idx, (int) strlen(layer));
+        free(layer);
+    }
 
     free(buff2);
     free(weights);
-    free(layer1);
-    free(layer2);
 
     return 0;
 }
