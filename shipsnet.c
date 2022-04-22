@@ -12,7 +12,7 @@
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 0
 #define IMPORTPARAMFROMJSON 0
-#define LOADDATASET 1
+#define LOADDATASET 0
 
 #define WIDTH 224
 #define COLORS 3
@@ -88,7 +88,7 @@ pthread_t workerThread;
 pthread_attr_t stackSizeAttribute;
 int pass[5] = {0};
 int working = 0;
-int requiredStackSize = MAXLAYER-2 * 1024 * 1024;
+int requiredStackSize = MAXLAYER - 2 * 1024 * 1024;
 // CONFUSION MATRIX DATA
 int maxCD = 54;
 int cDigits[MAXLAYER][MAXLAYER][54];
@@ -111,16 +111,16 @@ double *red4 = 0, *green4 = 0, *blue4 = 0;
 int requestInit = 0;
 // NET ARCHITECTURE
 char nets[9][MAXLAYER][20] =
-    {{"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "", "", "", ""},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "2", "20", "20", "6"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "150528", "C5:6", "P2", "C5:16", "P2", "128", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "150528", "C3:32", "P2", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "150528", "10", "10", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
+    {{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "2", "20", "20", "6"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "C5:6", "P2", "C5:16", "P2", "128", "2"},
+     {"", "", "", "", "", "", "", "", "", "150528", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "512", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "10", "10", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
      // debug nets below
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "150528", "C5:6", "P2", "50", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "", "37632", "100", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "16", "C3:2", "P2", "2", "2"}};
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "C5:6", "P2", "50", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "37632", "100", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "16", "C3:2", "P2", "2", "2"}};
 
 pthread_barrier_t barrier;
 pthread_barrierattr_t attr;
@@ -624,10 +624,17 @@ void initArch(char *str, int x)
     {
         layerSizes[x] = atoi(str);
         layerConv[x] = 0;
-        layerChan[x] = 1;
+        if (x == 0 || layerSizes[x - 1] == 0)
+        {
+            layerChan[x] = COLORS;
+        }
+        else
+        {
+            layerChan[x] = 1;
+        }
         layerPad[x] = 0;
-        layerWidth[x] = (int)sqrt(layerSizes[x] / 3);
-        if (layerWidth[x] * layerWidth[x] != layerSizes[x] / 3)
+        layerWidth[x] = (int)sqrt(layerSizes[x] / COLORS);
+        if (layerWidth[x] * layerWidth[x] != layerSizes[x] / COLORS)
             layerWidth[x] = 1;
         layerStride[x] = 1;
         layerConvStep[x] = 0;
@@ -803,9 +810,15 @@ void initNet(int t)
             // printf("setting dropOut i=%d to %d\n",i,(layerSizes[i] * layerChan[i] + 1));
             errors[i] = (float *)malloc((layerSizes[i] * layerChan[i] + 1) * sizeof(float));
             if (layerType[i] == 0) // FULLY CONNECTED
-                weights[i] = (float *)malloc(layerSizes[i] * (layerSizes[i - 1] * layerChan[i - 1] + 1) * sizeof(float));
+            {
+                int nbrParam = layerSizes[i] * (layerSizes[i - 1] * layerChan[i - 1] + 1);
+                weights[i] = (float *)malloc(nbrParam * sizeof(float));
+            }
             else if (layerType[i] == 1) // CONVOLUTION
-                weights[i] = (float *)malloc((layerConvStep[i] + 1) * layerChan[i] * sizeof(float));
+            {
+                int nbrParam = (layerConvStep[i] + 1) * layerChan[i];
+                weights[i] = (float *)malloc(nbrParam * sizeof(float));
+            }
             else if (layerType[i] >= 2) // POOLING (2=max, 3=avg)
                 weights[i] = (float *)malloc(sizeof(float));
         }
@@ -840,15 +853,17 @@ void initNet(int t)
             }
             // if (activation==1 && j!=9) scale *= sqrt(2.0); // DO I WANT THIS? INPUT ISN'T MEAN=0
             // printf("Init layer %d: LS=%d LC=%d LCS=%d Scale=%f\n",j,layerSizes[j],layerChan[j],layerConvStep[j],scale);
-            if (idxLayer != MAXLAYER-1)
+            if (idxLayer != MAXLAYER - 1)
                 scale *= weightScale;
         }
         if (layerType[idxLayer] == 0)
         { // FULLY CONNECTED
-            if (IMPORTPARAMFROMJSON){
-                return ; // TODO
+            if (IMPORTPARAMFROMJSON)
+            {
+                return; // TODO
             }
-            else {
+            else
+            {
                 for (i = 0; i < layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1); i++)
                     weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
                 // weights[j][i] = 0.1;
@@ -858,10 +873,12 @@ void initNet(int t)
         }
         else if (layerType[idxLayer] == 1)
         { // CONVOLUTION
-            if(IMPORTPARAMFROMJSON){
-                return ; // TODO
+            if (IMPORTPARAMFROMJSON)
+            {
+                return; // TODO
             }
-            else{
+            else
+            {
                 for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
                     weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
                 for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
@@ -1080,7 +1097,7 @@ void *runBackProp(void *arg)
                 s2++;
             cDigits[trainDigits[validSet[idxImage]]][p][confusion[trainDigits[validSet[idxImage]]][p] % maxCD] = validSet[idxImage];
             confusion[trainDigits[validSet[idxImage]]][p]++;
-            if (layers[MAXLAYER-1][p] == 0)
+            if (layers[MAXLAYER - 1][p] == 0)
             {
                 if (z == 1)
                     printf("Test vanished.\n");
@@ -1089,7 +1106,7 @@ void *runBackProp(void *arg)
                 working = 0;
                 return NULL;
             }
-            entropy2 -= log(layers[MAXLAYER-1][p]);
+            entropy2 -= log(layers[MAXLAYER - 1][p]);
             if (working == 0)
             {
                 printf("learning stopped early\n");
@@ -1181,15 +1198,15 @@ int backProp(int x, float *ent, int ep)
     if (p == y)
         r = 1;
     // OUTPUT LAYER - CALCULATE ERRORS
-    for (i = 0; i < layerSizes[MAXLAYER-1]; i++)
+    for (i = 0; i < layerSizes[MAXLAYER - 1]; i++)
     {
-        errors[MAXLAYER-1][i] = learn * (0 - layers[MAXLAYER-1][i]) * pow(decay, ep);
+        errors[MAXLAYER - 1][i] = learn * (0 - layers[MAXLAYER - 1][i]) * pow(decay, ep);
         if (i == y)
         {
-            errors[MAXLAYER-1][i] = learn * (1 - layers[MAXLAYER-1][i]) * pow(decay, ep);
-            if (layers[MAXLAYER-1][i] == 0)
+            errors[MAXLAYER - 1][i] = learn * (1 - layers[MAXLAYER - 1][i]) * pow(decay, ep);
+            if (layers[MAXLAYER - 1][i] == 0)
                 return -1; // GRADIENT VANISHED
-            *ent = -log(layers[MAXLAYER-1][i]);
+            *ent = -log(layers[MAXLAYER - 1][i]);
         }
     }
     // HIDDEN LAYERS - CALCULATE ERRORS
@@ -1468,30 +1485,30 @@ int forwardProp(int image, int dp, int train, int lay)
 
     // OUTPUT LAYER - SOFTMAX ACTIVATION
     esum = 0.0;
-    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER-1]; idxNeuron++)
+    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER - 1]; idxNeuron++)
     {
         sum = 0.0;
-        for (j = 0; j < layerSizes[MAXLAYER-2] + 1; j++)
-            sum += layers[MAXLAYER-2][j] * weights[MAXLAYER-1][idxNeuron * (layerSizes[MAXLAYER-2] + 1) + j];
-        layers[MAXLAYER-1][idxNeuron] = exp(sum);
-        if (layers[MAXLAYER-1][idxNeuron] > 1e30)
+        for (j = 0; j < layerSizes[MAXLAYER - 2] + 1; j++)
+            sum += layers[MAXLAYER - 2][j] * weights[MAXLAYER - 1][idxNeuron * (layerSizes[MAXLAYER - 2] + 1) + j];
+        layers[MAXLAYER - 1][idxNeuron] = exp(sum);
+        if (layers[MAXLAYER - 1][idxNeuron] > 1e30)
             return -1; // GRADIENTS EXPLODED
-        esum += layers[MAXLAYER-1][idxNeuron];
+        esum += layers[MAXLAYER - 1][idxNeuron];
     }
 
     // SOFTMAX FUNCTION
-    max = layers[MAXLAYER-1][0];
+    max = layers[MAXLAYER - 1][0];
     imax = 0;
-    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER-1]; idxNeuron++)
+    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER - 1]; idxNeuron++)
     {
-        if (layers[MAXLAYER-1][idxNeuron] > max)
+        if (layers[MAXLAYER - 1][idxNeuron] > max)
         {
-            max = layers[MAXLAYER-1][idxNeuron];
+            max = layers[MAXLAYER - 1][idxNeuron];
             imax = idxNeuron;
         }
-        layers[MAXLAYER-1][idxNeuron] = layers[MAXLAYER-1][idxNeuron] / esum;
+        layers[MAXLAYER - 1][idxNeuron] = layers[MAXLAYER - 1][idxNeuron] / esum;
     }
-    prob = layers[MAXLAYER-1][imax]; // ugly use of global variable :-(
+    prob = layers[MAXLAYER - 1][imax]; // ugly use of global variable :-(
     // prob0 = layers[MAXLAYER-1][0];
     // prob1 = layers[MAXLAYER-1][2];
     // prob2 = layers[MAXLAYER-1][4];
