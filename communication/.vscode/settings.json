@@ -6,10 +6,6 @@
         "string.h": "c",
         "stdlib.h": "c",
         "type_traits": "c",
-        "api.h": "c",
-        "opt.h": "c",
-        "cwchar": "c",
-        "cmath": "c",
-        "limits": "c"
+        "api.h": "c"
     }
 }
