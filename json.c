@@ -79,7 +79,7 @@ char *get_str_in_json(char *buffer, char *param)
     int size = 0;
     for (size = 0; *(ptr + size) != '\"'; size++)
         ;
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
     return ret;
 }
@@ -111,7 +111,7 @@ char *get_tab_in_json(char *buffer, char *param)
         }
     };
     size++; // Get ]
-    char *ret = malloc(sizeof(char) * size + 1);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
     *(ret + sizeof(char) * size) = 0;
     return ret;
@@ -131,7 +131,7 @@ char *get_str_in_tab(char *tab, int idx)
         size--;
         tab++; // Skip "
     }
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, tab, size);
     *(ret + sizeof(char) * size) = 0;
     return ret;
@@ -157,7 +157,7 @@ char *get_object_in_json(char *buffer, char *param)
         }
     }
     size++; // Get }
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
     return ret;
 }
@@ -190,7 +190,7 @@ char *get_tab_in_tab(char *tab, int idx)
         }
     }
     size++; // Get ]
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, tab, size);
     return ret;
 }
@@ -207,7 +207,7 @@ char *go_to_number(char *str)
 int get_size_of_float(char *str)
 {
     int size = 0;
-    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-') && ((*str) != '.')))
+    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-') && ((*str) != 'e') && ((*str) != '.')))
     {
         str++;
         size++;
@@ -229,16 +229,16 @@ int get_size_of_int(char *str)
 float get_float_in_string(char *str, int idx)
 {
     int size = 0;
-    for (int i; i <= idx; i++)
+    for (int i = 0; i <= idx; i++)
     {
         str = go_to_number(str);
         size = get_size_of_float(str);
-        if (i != idx)
+        if (i != idx) // Wrong number, go forward
         {
             str += size + 1;
         }
     }
-    char *buff[size];
+    char *buff = calloc(size + 1, sizeof(char));
     memcpy(buff, str, size);
     float val = atof((const char *)buff);
     return val;
