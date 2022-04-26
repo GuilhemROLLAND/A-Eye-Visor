@@ -62,7 +62,7 @@ int main()
     // // int valInt = get_int_in_string(tab,1);
     // // printf("valInt = %i\n", valInt);
 
-    char filename[] = "softmax.json";
+    char filename[] = "fl32.json";
     char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
     int ret = read_from_file(filename, buff2);
     printf("size of file : %d\n", ret);
