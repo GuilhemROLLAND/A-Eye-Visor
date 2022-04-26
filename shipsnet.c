@@ -12,8 +12,9 @@
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 0
 #define IMPORTPARAMFROMJSON 1
-#define LOADDATASET 0
-#define INFERENCEMODE 0
+#define LOADDATASET 1
+#define INFERENCEMODE 1
+int rows = 0;
 char filename[] = "fl32.json";
 
 #define WIDTH 224
@@ -184,10 +185,11 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
-    int rows = 0, removeHeader = 1, removeCol1 = 0;
+    int removeHeader = 1, removeCol1 = 0;
     double validRatio = 0.2, divideBy = 255, subtractBy = 0;
     if (LOADDATASET)
     {
+        printf("Load train Set with validRatio = %f\n", validRatio);
         int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
         printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
         int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
@@ -311,28 +313,69 @@ int main(int argc, char *argv[])
     }
     printf("Display rate set to %d\n", displayRate);
 
-    // training
-    pass[0] = epoch;
-    pass[1] = displayRate;
-    pass[2] = 0;
-    working = 1;
     printf("Running \n");
-    runBackProp(NULL);
+    if (INFERENCEMODE)
+    {
+        working = 1;
+
+        int s2 = 0;
+        int entropy2 = 0;
+        int confusion[MAXLAYER][MAXLAYER] = {{0}};
+        int entSize = 0, accSize = 0, ent2Size = 0, acc2Size = 0;
+
+        for (int idxImage = 0; idxImage < validSetSize; idxImage++) 
+        {
+            time_t start, stop;
+            time(&start);
+            int pred = forwardProp(validSet[idxImage], 0, 1, 0);
+            time(&stop);
+            if (pred == -1)
+            {
+                printf("Test exploded.\n");
+                working = 0;
+                return -1;
+            }
+            if (pred == trainDigits[validSet[idxImage]])
+                s2++;
+            cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
+            confusion[trainDigits[validSet[idxImage]]][pred]++;
+            if (layers[MAXLAYER - 1][pred] == 0)
+            {
+                printf("Test vanished.\n");
+                working = 0;
+                return -1;
+            }
+            entropy2 -= log(layers[MAXLAYER - 1][pred]);
+            if (working == 0)
+            {
+                printf("learning stopped early\n");
+                pthread_exit(NULL);
+            }
+            printf("Process %d/%d pics (%f sec)\r", idxImage + 1, validSetSize, difftime(stop, start));
+            fflush(stdout);
+        }
+        entropy2 = entropy2 / validSetSize;
+        printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
+    }
+    else
+    {
+        // training
+        pass[0] = epoch;
+        pass[1] = displayRate;
+        pass[2] = 0;
+        working = 1;
+        runBackProp(NULL);
+    }
+
     // pthread_create(&workerThread, &stackSizeAttribute, runBackProp, NULL);
     // ret = pthread_join(workerThread, NULL);
+    // pthread_cancel(workerThread);
 
     /**********************************************************************/
     /*      PREDICT                                                       */
     /**********************************************************************/
 
-    int NN = 1;
-    int big = 1;
-    int k = 5;
-    int d = 2;
-    int dispRate = 100;
-    // pthread_cancel(workerThread);
-
-    printf("END OF RUN\n");
+    printf("END OF MAIN\n");
 }
 
 /**********************************************************************/
@@ -834,7 +877,7 @@ void initNet(int t)
     {
         char *bufFile = (char *)malloc((unsigned long)fsize(filename) + 1);
         int ret = read_from_file(filename, bufFile);
-        printf("size of file : %d\n", ret);
+        printf("Size of parameters' file : %d\n", ret);
         weightsStr = get_object_in_json(bufFile, "weights");
         free(bufFile);
         if (weightsStr == NULL)
