@@ -1,4 +1,4 @@
-#include "preprocess_ddr.h"
+#include "preprocess.h"
 
 // unsigned char *ptr_img =0x1ffeae00;
 
