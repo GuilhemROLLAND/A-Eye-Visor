@@ -15,7 +15,7 @@
 #define LOADDATASET 1
 #define INFERENCEMODE 1
 int rows = 0;
-char filename[] = "fl32.json";
+char filename[] = "rescal_fl32.json";
 
 #define WIDTH 224
 #define COLORS 3
@@ -30,6 +30,7 @@ void initArch(char *str, int x);
 // NEURAL-NET
 int isDigits(int init);
 void randomizeTrainSet();
+void randomizeValidSet();
 void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t);
 void *runBackProp(void *arg);
 int backProp(int x, float *ent, int ep);
@@ -118,7 +119,7 @@ char nets[9][MAXLAYER][20] =
     {{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "2", "20", "20", "6"},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32:1", "2"},
-     {"", "", "", "", "", "", "", "", "", "150528", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "32", "2"},
+     {"", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "32", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "10", "10", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
      // debug nets below
@@ -185,8 +186,8 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
-    int removeHeader = 1, removeCol1 = 0;
-    double validRatio = 0.2, divideBy = 255, subtractBy = 0;
+    int removeHeader = 0, removeCol1 = 0;
+    double validRatio = 1., divideBy = 127.5, subtractBy = 1;
     if (LOADDATASET)
     {
         printf("Load train Set with validRatio = %f\n", validRatio);
@@ -316,6 +317,7 @@ int main(int argc, char *argv[])
     printf("Running \n");
     if (INFERENCEMODE)
     {
+        randomizeValidSet();
         working = 1;
         int s2 = 0;
         int entropy2 = 0;
@@ -353,6 +355,7 @@ int main(int argc, char *argv[])
             printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
             fflush(stdout);
         }
+        printf("\n");
         entropy2 = entropy2 / validSetSize;
         printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
     }
@@ -390,7 +393,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_train.csv";
+    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -678,8 +681,8 @@ void initArch(char *str, int x)
             layerChan[x] = 1;
         }
         layerPad[x] = 0;
-        layerWidth[x] = (int)sqrt(layerSizes[x] / COLORS);
-        if (layerWidth[x] * layerWidth[x] != layerSizes[x] / COLORS)
+        layerWidth[x] = (int)sqrt(layerSizes[x]);
+        if (layerWidth[x] * layerWidth[x] != layerSizes[x])
             layerWidth[x] = 1;
         layerStride[x] = 1;
         layerConvStep[x] = 0;
@@ -1002,7 +1005,7 @@ int isDigits(int init)
 {
     // DETERMINES WHETHER TO TRAIN DOTS OR LOADED DATA
     int in = MAXLAYER - numLayers;
-    if (layerSizes[in] == 196 || layerSizes[in] == 784 || layerSizes[in] == trainColumns)
+    if (layerSizes[in] == WIDTH * WIDTH || layerSizes[in] == 784 || layerSizes[in] == trainColumns)
         return 1;
     else
         return 0;
@@ -1021,6 +1024,18 @@ void randomizeTrainSet()
         temp = trainSet[i];
         trainSet[i] = trainSet[x];
         trainSet[x] = temp;
+    }
+}
+void randomizeValidSet()
+{
+    // RANDOMIZES INDICES IN TRAINING SET
+    int i, temp, x;
+    for (i = 0; i < validSetSize; i++)
+    {
+        x = (int)(validSetSize * ((float)rand() / (float)RAND_MAX) - 1);
+        temp = validSet[i];
+        validSet[i] = validSet[x];
+        validSet[x] = temp;
     }
 }
 
@@ -1454,7 +1469,7 @@ int forwardProp(int image, int dp, int train, int lay)
             for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS / 2 / 2; iLargOut++)
                 layers[MAXLAYER - numLayers][iLargOut] = testImages2[image][iLargOut];
     }
-    else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH * COLORS)
+    else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH)
     { // Full pictures
         if (train == 1)
             for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS; iLargOut++)
@@ -1607,14 +1622,14 @@ int forwardProp(int image, int dp, int train, int lay)
     // SOFTMAX FUNCTION
     max = layers[MAXLAYER - 1][0];
     imax = 0;
-    for (iLargOut = 0; iLargOut < layerSizes[MAXLAYER - 1]; iLargOut++)
+    for (int iNeuron = 0; iNeuron < layerSizes[MAXLAYER - 1]; iNeuron++)
     {
-        if (layers[MAXLAYER - 1][iLargOut] > max)
+        if (layers[MAXLAYER - 1][iNeuron] > max)
         {
-            max = layers[MAXLAYER - 1][iLargOut];
-            imax = iLargOut;
+            max = layers[MAXLAYER - 1][iNeuron];
+            imax = iNeuron;
         }
-        layers[MAXLAYER - 1][iLargOut] = layers[MAXLAYER - 1][iLargOut] / esum;
+        layers[MAXLAYER - 1][iNeuron] = layers[MAXLAYER - 1][iNeuron] / esum;
     }
     prob = layers[MAXLAYER - 1][imax]; // ugly use of global variable :-(
     // prob0 = layers[MAXLAYER-1][0];
