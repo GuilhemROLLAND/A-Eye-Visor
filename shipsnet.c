@@ -193,8 +193,8 @@ int main(int argc, char *argv[])
         printf("Load train Set with validRatio = %f\n", validRatio);
         int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
         printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-        int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-        printf("Loaded %d rows test, %d features\n", test, testColumns);
+        // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+        // printf("Loaded %d rows test, %d features\n", test, testColumns);
     }
 
     /**********************************************************************/
@@ -889,7 +889,7 @@ void initNet(int t)
         }
     }
 
-    int idxLayerInFile = 0; 
+    int idxLayerInFile = 0;
     for (idxLayer = 1; idxLayer < MAXLAYER; idxLayer++)
     {
         if (IMPORTPARAMFROMJSON && ((layerType[idxLayer] == 0) || (layerType[idxLayer] == 1)))
@@ -918,13 +918,13 @@ void initNet(int t)
                     for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
                         weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = get_float_in_string(layerBias, i);
                 }
-                else if (layerType[idxLayer] == 1) 
-                { // CONVOLUTION
+                else if (layerType[idxLayer] == 1)
+                {                                                                    // CONVOLUTION                                                               // CONVOLUTION
                     for (int iParam = 0; iParam < layerConvStep[idxLayer]; iParam++) // +1 ??
                     {
-                        int profondeur = iParam / (layerConv[idxLayer] * layerConv[idxLayer]);
-                        int largeur = (iParam - (profondeur * (layerConv[idxLayer] * layerConv[idxLayer]))) / layerConv[idxLayer];
-                        int hauteur = (iParam - (profondeur * (layerConv[idxLayer] * layerConv[idxLayer])) - largeur * layerConv[idxLayer]);
+                        int profondeur = iParam % (layerChan[idxLayer-1]);
+                        int largeur = (iParam / layerChan[idxLayer-1]) % layerConv[idxLayer];
+                        int hauteur = (iParam / layerChan[idxLayer-1]) / layerConv[idxLayer];
                         char *paramHauteur = get_tab_in_tab(layerWeights, hauteur);
                         char *paramLargeur = get_tab_in_tab(paramHauteur, largeur);
                         char *paramProf = get_tab_in_tab(paramLargeur, profondeur);
@@ -933,12 +933,16 @@ void initNet(int t)
                         for (int iFilter = 0; iFilter < layerChan[idxLayer]; iFilter++)
                         {
                             float param = get_float_in_string(paramProf, iFilter);
-                            weights[idxLayer][iFilter * (layerConvStep[idxLayer] + 1) + iParam] = param;
+                            weights[idxLayer][iParam * layerChan[idxLayer] + iFilter] = param;
                         }
                         free(paramProf);
                     }
-                    for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
-                        weights[idxLayer][(layerConvStep[idxLayer] + 1) * (i + 1) - 1] = get_float_in_string(layerBias, i);
+                    for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases
+                        weights[idxLayer][layerConvStep[idxLayer] * layerChan[idxLayer] + i] = get_float_in_string(layerBias, i);
+                }
+                if (idxLayer == 10)
+                {
+                    write_float_in_file("weights10.json", weights[idxLayer], (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]);
                 }
                 free(layerWeights);
                 free(layerBias);
@@ -1487,7 +1491,7 @@ int forwardProp(int image, int dp, int train, int lay)
             for (iLargOut = 0; iLargOut < trainColumns; iLargOut++)
                 layers[MAXLAYER - numLayers][iLargOut] = testImages[image][iLargOut];
     }
-
+    write_float_in_file("image_preprocessed.json", layers[9], layerSizes[9]*layerChan[9]);
     // HIDDEN LAYERS
     for (layer = MAXLAYER + 1 - numLayers; layer < MAXLAYER - 1; layer++)
     {
@@ -1547,7 +1551,7 @@ int forwardProp(int image, int dp, int train, int lay)
                                 {
                                     i3 = iLargOut + iLargIn - dc;
                                     j3 = iHautOut + iHautIn - dc;
-                                    int idxWeights = temp + iProfIn * layerConvStep2[layer] + iLargIn * layerConv[layer] + iHautIn;
+                                    int idxWeights = temp + iHautIn * layerConvStep2[layer] + iLargIn * layerConv[layer] + iProfIn;
                                     if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
                                     {
                                         sum += layers[layer - 1][iProfIn * layerSizes[layer - 1] + i3 * layerWidth[layer - 1] + j3] * weights[layer][idxWeights];
@@ -1559,11 +1563,11 @@ int forwardProp(int image, int dp, int train, int lay)
                                 }
                         sum += weights[layer][(iFilter + 1) * (layerConvStep[layer] + 1) - 1];
                         if (activation == 0)
-                            layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = sum;
+                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = sum;
                         else if (activation == 1)
-                            layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = ReLU(sum);
+                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = ReLU(sum);
                         else
-                            layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = TanH(sum);
+                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = TanH(sum);
                     }
             // APPLY DROPOUT
             if (dropOutRatio > 0.0 && DOconv == 1)
@@ -1574,8 +1578,14 @@ int forwardProp(int image, int dp, int train, int lay)
                     else if (dp == 1)
                         layers[layer][iLargOut] = layers[layer][iLargOut] * dropOut[layer][iLargOut];
                 }
+            // Save in file
+            if (layer == 10)
+            {
+                write_float_in_file("layer10.json", layers[layer], layerSizes[layer] * layerChan[layer]);
+            }
         }
-        else if (layerType[layer] >= 2) // POOLING LAYER (2=max, 3=avg)
+        else if (layerType[layer] >= 2)
+        { // POOLING LAYER (2=max, 3=avg)
             for (iFilter = 0; iFilter < layerChan[layer]; iFilter++)
                 for (iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
                     for (iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
@@ -1595,6 +1605,7 @@ int forwardProp(int image, int dp, int train, int lay)
                         else
                             layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = pmax;
                     }
+        }
         // APPLY DROPOUT
         if (dropOutRatio > 0.0 && DOpool == 1)
             for (iLargOut = 0; iLargOut < layerSizes[layer] * layerChan[layer]; iLargOut++)

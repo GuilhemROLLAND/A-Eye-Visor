@@ -54,7 +54,7 @@ unsigned long fsize(char *file)
 }
 
 int convertFloatToString(float f, char *c){
-    int size = sprintf(c, "%g", f);
+    int size = sprintf(c, "%f", f);
     return size;
 }
 
@@ -75,7 +75,9 @@ char *write_float_in_buffer(float * ptrToFloat, int nbrFloat){
 
 int write_float_in_file(char *filename, float *ptrToFloat, int nbrFloat){
     char *buff = write_float_in_buffer(ptrToFloat, nbrFloat);
-    return write_in_file(filename, buff);
+    int ret = write_in_file(filename, buff);
+    free(buff);
+    return ret;
 }
 
 int get_int_in_json(char *buffer, char *param)

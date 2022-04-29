@@ -61,3 +61,6 @@ shipsnet
 preprocess_ddr_test
 testPreprocess
 layers
+layer10.json
+weights10.json
+image_preprocessed.json
