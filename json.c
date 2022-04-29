@@ -53,6 +53,31 @@ unsigned long fsize(char *file)
     return len;
 }
 
+int convertFloatToString(float f, char *c){
+    int size = sprintf(c, "%g", f);
+    return size;
+}
+
+char *write_float_in_buffer(float * ptrToFloat, int nbrFloat){
+    char *ret = calloc(sizeof(char), 20*nbrFloat+1);
+    char *ptrWrite = ret;
+    for (int i = 0; i < nbrFloat; i++)
+    {
+        char c[50];
+        int size = convertFloatToString(ptrToFloat[i], c);
+        memcpy(ptrWrite, c, size);
+        ptrWrite += size;
+        memcpy(ptrWrite, ",", 1);
+        ptrWrite++;
+    }
+    return ret;
+}
+
+int write_float_in_file(char *filename, float *ptrToFloat, int nbrFloat){
+    char *buff = write_float_in_buffer(ptrToFloat, nbrFloat);
+    return write_in_file(filename, buff);
+}
+
 int get_int_in_json(char *buffer, char *param)
 {
     char *ptr = strstr(buffer, param);

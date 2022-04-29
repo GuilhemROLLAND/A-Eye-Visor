@@ -62,25 +62,40 @@ int main()
     // // int valInt = get_int_in_string(tab,1);
     // // printf("valInt = %i\n", valInt);
 
-    char filename[] = "fl32.json";
-    char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
-    int ret = read_from_file(filename, buff2);
-    printf("size of file : %d\n", ret);
+    // /**
+    //  * @brief Split weights into differents files for better reading
+    //  * 
+    //  */
+    // char filename[] = "fl32.json";
+    // char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
+    // int ret = read_from_file(filename, buff2);
+    // printf("size of file : %d\n", ret);
 
-    char *weights = get_object_in_json(buff2, "weights");
+    // char *weights = get_object_in_json(buff2, "weights");
 
-    for (int idx = 0; idx <= 11; idx ++){
-        char label[30];
-        sprintf(label, "layer%i", idx);
-        char *layer = get_tab_in_json(weights, label);
-        sprintf(label, "layers/layer%d.json", idx);
-        write_in_file(label, layer);
-        printf("size of layer%i param : %i\n", idx, (int) strlen(layer));
-        free(layer);
+    // for (int idx = 0; idx <= 11; idx ++){
+    //     char label[30];
+    //     sprintf(label, "layer%i", idx);
+    //     char *layer = get_tab_in_json(weights, label);
+    //     sprintf(label, "layers/layer%d.json", idx);
+    //     write_in_file(label, layer);
+    //     printf("size of layer%i param : %i\n", idx, (int) strlen(layer));
+    //     free(layer);
+    // }
+
+    // free(buff2);
+    // free(weights);
+
+
+    /**
+     * @brief test export float in file
+     * 
+     */
+    float tab[4];
+    for (int i = 0; i < 4; i++)
+    {
+        tab[i]= (float)rand()/(float)RAND_MAX;
     }
-
-    free(buff2);
-    free(weights);
-
+    write_float_in_file("export.json",tab, 4);
     return 0;
 }
