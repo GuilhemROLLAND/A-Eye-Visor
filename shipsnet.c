@@ -922,9 +922,9 @@ void initNet(int t)
                 {                                                                    // CONVOLUTION                                                               // CONVOLUTION
                     for (int iParam = 0; iParam < layerConvStep[idxLayer]; iParam++) // +1 ??
                     {
-                        int profondeur = iParam % (layerChan[idxLayer-1]);
-                        int largeur = (iParam / layerChan[idxLayer-1]) % layerConv[idxLayer];
-                        int hauteur = (iParam / layerChan[idxLayer-1]) / layerConv[idxLayer];
+                        int profondeur = iParam % (layerChan[idxLayer - 1]);
+                        int largeur = (iParam / layerChan[idxLayer - 1]) % layerConv[idxLayer];
+                        int hauteur = (iParam / layerChan[idxLayer - 1]) / layerConv[idxLayer];
                         char *paramHauteur = get_tab_in_tab(layerWeights, hauteur);
                         char *paramLargeur = get_tab_in_tab(paramHauteur, largeur);
                         char *paramProf = get_tab_in_tab(paramLargeur, profondeur);
@@ -1459,39 +1459,39 @@ int backProp(int x, float *ent, int ep)
 int forwardProp(int image, int dp, int train, int lay)
 {
     // FORWARD PROPAGATION WITH 1 IMAGE
-    int iLargOut, iHautOut, layer, imax, dc;
-    int iFilter, iProfIn, iLargIn, iHautIn, i3, j3;
+    int idx1, idx2, layer, imax, dc;
+    int idx3, idx4, idx5, idx6;
     float sum, esum, max, rnd, pmax;
     int temp, temp2;
     // INPUT LAYER
     if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH * COLORS / 2 / 2)
     { // Small Subset
         if (train == 1)
-            for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS / 2 / 2; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = trainImages2[image][iLargOut];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS / 2 / 2; idx++)
+                layers[MAXLAYER - numLayers][idx] = trainImages2[image][idx];
         else
-            for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS / 2 / 2; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = testImages2[image][iLargOut];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS / 2 / 2; idx++)
+                layers[MAXLAYER - numLayers][idx] = testImages2[image][idx];
     }
     else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH)
     { // Full pictures
         if (train == 1)
-            for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = trainImages[image][iLargOut];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS; idx++)
+                layers[MAXLAYER - numLayers][idx] = trainImages[image][idx];
         else
-            for (iLargOut = 0; iLargOut < WIDTH * WIDTH * COLORS; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = testImages[image][iLargOut];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS; idx++)
+                layers[MAXLAYER - numLayers][idx] = testImages[image][idx];
     }
     else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == trainColumns)
     { // Other
         if (train == 1)
-            for (iLargOut = 0; iLargOut < trainColumns; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = trainImages[image][iLargOut];
+            for (idx1 = 0; idx1 < trainColumns; idx1++)
+                layers[MAXLAYER - numLayers][idx1] = trainImages[image][idx1];
         else
-            for (iLargOut = 0; iLargOut < trainColumns; iLargOut++)
-                layers[MAXLAYER - numLayers][iLargOut] = testImages[image][iLargOut];
+            for (idx1 = 0; idx1 < trainColumns; idx1++)
+                layers[MAXLAYER - numLayers][idx1] = testImages[image][idx1];
     }
-    write_float_in_file("image_preprocessed.json", layers[9], layerSizes[9]*layerChan[9]);
+    write_float_in_file("image_preprocessed.json", layers[9], layerSizes[9] * layerChan[9]);
     // HIDDEN LAYERS
     for (layer = MAXLAYER + 1 - numLayers; layer < MAXLAYER - 1; layer++)
     {
@@ -1499,14 +1499,14 @@ int forwardProp(int image, int dp, int train, int lay)
             return -1;
         // CALCULATE DROPOUT
         // if (dropOutRatio>0.0) // ALWAYS SET TO 1 TO BE SAFE
-        for (iLargOut = 0; iLargOut < layerSizes[layer] * layerChan[layer]; iLargOut++)
+        for (int idx = 0; idx < layerSizes[layer] * layerChan[layer]; idx++)
         {
-            dropOut[layer][iLargOut] = 1;
+            dropOut[layer][idx] = 1;
             if (dropOutRatio > 0.0 && dp == 1)
             {
                 rnd = (float)rand() / (float)RAND_MAX;
                 if (rnd < dropOutRatio)
-                    dropOut[layer][iLargOut] = 0;
+                    dropOut[layer][idx] = 0;
             }
         }
 
@@ -1539,44 +1539,47 @@ int forwardProp(int image, int dp, int train, int lay)
             dc = 0;
             if (layerPad[layer] == 1)
                 dc = layerConv[layer] / 2;
-            for (iFilter = 0; iFilter < layerChan[layer]; iFilter++)
-                for (iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
-                    for (iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
+            for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
+                    for (int iFilterOut = 0; iFilterOut < layerChan[layer]; iFilterOut++)
                     {
-                        temp = iFilter * (layerConvStep[layer] + 1);
                         sum = 0.0;
-                        for (iProfIn = 0; iProfIn < layerChan[layer - 1]; iProfIn++)
-                            for (iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
-                                for (iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
+                        for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
+                            for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                                for (int iProfIn = 0; iProfIn < layerChan[layer - 1]; iProfIn++)
                                 {
-                                    i3 = iLargOut + iLargIn - dc;
-                                    j3 = iHautOut + iHautIn - dc;
-                                    int idxWeights = temp + iHautIn * layerConvStep2[layer] + iLargIn * layerConv[layer] + iProfIn;
+                                    int i3 = iLargOut + iLargIn - dc;
+                                    int j3 = iHautOut + iHautIn - dc;
+                                    int idxWeights = iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer] + iFilterOut;
+                                    float weight = weights[layer][idxWeights];
                                     if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
                                     {
-                                        sum += layers[layer - 1][iProfIn * layerSizes[layer - 1] + i3 * layerWidth[layer - 1] + j3] * weights[layer][idxWeights];
+                                        float val = layers[layer - 1][i3 * layerWidth[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
+                                        sum += val * weight;
                                     }
                                     else
                                     {
-                                        sum -= imgBias * weights[layer][idxWeights];
+                                        sum -= imgBias * weight;
                                     }
                                 }
-                        sum += weights[layer][(iFilter + 1) * (layerConvStep[layer] + 1) - 1];
+                        sum += weights[layer][layerConvStep[layer] * layerChan[layer] + iFilterOut];
+                        int idx = iHautOut * layerWidth[layer] * layerChan[layer] + iLargOut * layerChan[layer] + iFilterOut;
                         if (activation == 0)
-                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = sum;
+                            sum = sum;
                         else if (activation == 1)
-                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = ReLU(sum);
+                            sum = ReLU(sum);
                         else
-                            layers[layer][iHautOut * layerSizes[layer] + iLargOut * layerWidth[layer] + iFilter] = TanH(sum);
+                            sum = TanH(sum);
+                        layers[layer][idx] = sum;
                     }
             // APPLY DROPOUT
             if (dropOutRatio > 0.0 && DOconv == 1)
-                for (iLargOut = 0; iLargOut < layerSizes[layer] * layerChan[layer]; iLargOut++)
+                for (idx1 = 0; idx1 < layerSizes[layer] * layerChan[layer]; idx1++)
                 {
                     if (dp == 0)
-                        layers[layer][iLargOut] = layers[layer][iLargOut] * (1 - dropOutRatio);
+                        layers[layer][idx1] = layers[layer][idx1] * (1 - dropOutRatio);
                     else if (dp == 1)
-                        layers[layer][iLargOut] = layers[layer][iLargOut] * dropOut[layer][iLargOut];
+                        layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
                 }
             // Save in file
             if (layer == 10)
@@ -1586,34 +1589,34 @@ int forwardProp(int image, int dp, int train, int lay)
         }
         else if (layerType[layer] >= 2)
         { // POOLING LAYER (2=max, 3=avg)
-            for (iFilter = 0; iFilter < layerChan[layer]; iFilter++)
-                for (iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
-                    for (iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
+            for (idx3 = 0; idx3 < layerChan[layer]; idx3++)
+                for (idx1 = 0; idx1 < layerWidth[layer]; idx1++)
+                    for (idx2 = 0; idx2 < layerWidth[layer]; idx2++)
                     {
                         sum = 0.0;
                         pmax = -1e6;
-                        for (iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
-                            for (iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
+                        for (idx5 = 0; idx5 < layerConv[layer]; idx5++)
+                            for (idx6 = 0; idx6 < layerConv[layer]; idx6++)
                             {
                                 if (layerType[layer] == 3)
-                                    sum += layers[layer - 1][iFilter * layerSizes[layer - 1] + (iLargOut * layerStride[layer] + iLargIn) * layerWidth[layer - 1] + iHautOut * layerStride[layer] + iHautIn];
-                                else if (layers[layer - 1][iFilter * layerSizes[layer - 1] + (iLargOut * layerStride[layer] + iLargIn) * layerWidth[layer - 1] + iHautOut * layerStride[layer] + iHautIn] > pmax)
-                                    pmax = layers[layer - 1][iFilter * layerSizes[layer - 1] + (iLargOut * layerStride[layer] + iLargIn) * layerWidth[layer - 1] + iHautOut * layerStride[layer] + iHautIn];
+                                    sum += layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6];
+                                else if (layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6] > pmax)
+                                    pmax = layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6];
                             }
                         if (layerType[layer] == 3)
-                            layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = sum / layerConvStep2[layer];
+                            layers[layer][idx3 * layerSizes[layer] + idx1 * layerWidth[layer] + idx2] = sum / layerConvStep2[layer];
                         else
-                            layers[layer][iFilter * layerSizes[layer] + iLargOut * layerWidth[layer] + iHautOut] = pmax;
+                            layers[layer][idx3 * layerSizes[layer] + idx1 * layerWidth[layer] + idx2] = pmax;
                     }
         }
         // APPLY DROPOUT
         if (dropOutRatio > 0.0 && DOpool == 1)
-            for (iLargOut = 0; iLargOut < layerSizes[layer] * layerChan[layer]; iLargOut++)
+            for (idx1 = 0; idx1 < layerSizes[layer] * layerChan[layer]; idx1++)
             {
                 if (dp == 0)
-                    layers[layer][iLargOut] = layers[layer][iLargOut] * (1 - dropOutRatio);
+                    layers[layer][idx1] = layers[layer][idx1] * (1 - dropOutRatio);
                 else if (dp == 1)
-                    layers[layer][iLargOut] = layers[layer][iLargOut] * dropOut[layer][iLargOut];
+                    layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
             }
     }
 
