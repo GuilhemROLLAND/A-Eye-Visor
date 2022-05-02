@@ -11,9 +11,9 @@
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 0
-#define IMPORTPARAMFROMJSON 1
+#define IMPORTPARAMFROMJSON 0
 #define LOADDATASET 1
-#define INFERENCEMODE 1
+#define INFERENCEMODE 0
 // Write lots of parameters into files in sauv/
 #define SAVEVALUES 0
 int rows = 0;
@@ -63,7 +63,7 @@ int testColumns = 0;
 int inited = -1;
 int activation = 1; // 0=Identity, 1=ReLU, 2=TanH
 const int randomizeDescent = 1;
-float learn = .0001;
+float learn = .000001;
 int DOconv = 1, DOdense = 1, DOpool = 1;
 float dropOutRatio = 0.0, decay = 0.95;
 float augmentRatio = 0.2, weightScale = 1.0;
@@ -119,8 +119,8 @@ int requestInit = 0;
 // NET ARCHITECTURE
 char nets[9][MAXLAYER][20] =
     {{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""},
-     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "2", "20", "20", "6"},
-     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32:1", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "10", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "C3:4:1", "2"},
      {"", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "32", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "10", "10", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
     int removeHeader = 0, removeCol1 = 0;
-    double validRatio = 1., divideBy = 127.5, subtractBy = 1;
+    double validRatio = 0.6, divideBy = 127.5, subtractBy = 1;
     if (LOADDATASET)
     {
         printf("Load train Set with validRatio = %f\n", validRatio);
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
     /*      INIT NET                                                      */
     /**********************************************************************/
     weightScale = 1.414;
-    int net = 3;
+    int net = 2;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
     initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
