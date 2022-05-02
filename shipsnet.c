@@ -940,9 +940,11 @@ void initNet(int t)
                     for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases
                         weights[idxLayer][layerConvStep[idxLayer] * layerChan[idxLayer] + i] = get_float_in_string(layerBias, i);
                 }
-                if (idxLayer == 10)
+                if ((idxLayer == 10)||(idxLayer == 12))
                 {
-                    write_float_in_file("weights10.json", weights[idxLayer], (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]);
+                    char nameFile[30];
+                    sprintf(nameFile, "weights%d.json", idxLayer);
+                    write_float_in_file(nameFile, weights[idxLayer], (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]);
                 }
                 free(layerWeights);
                 free(layerBias);
@@ -1584,24 +1586,26 @@ int forwardProp(int image, int dp, int train, int lay)
         }
         else if (layerType[layer] >= 2)
         { // POOLING LAYER (2=max, 3=avg)
-            for (idx3 = 0; idx3 < layerChan[layer]; idx3++)
-                for (idx1 = 0; idx1 < layerWidth[layer]; idx1++)
-                    for (idx2 = 0; idx2 < layerWidth[layer]; idx2++)
+            for (int iChanOut = 0; iChanOut < layerChan[layer]; iChanOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
+                    for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
                     {
                         sum = 0.0;
                         pmax = -1e6;
-                        for (idx5 = 0; idx5 < layerConv[layer]; idx5++)
-                            for (idx6 = 0; idx6 < layerConv[layer]; idx6++)
+                        for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                            for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
                             {
+                                int idxIn = (2*iLargOut + iLargIn) * layerWidth[layer-1] * layerChan[layer-1] + (2*iHautOut + iHautIn) * layerChan[layer-1] + iChanOut;
                                 if (layerType[layer] == 3)
-                                    sum += layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6];
-                                else if (layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6] > pmax)
-                                    pmax = layers[layer - 1][idx3 * layerSizes[layer - 1] + (idx1 * layerStride[layer] + idx5) * layerWidth[layer - 1] + idx2 * layerStride[layer] + idx6];
+                                    sum += layers[layer - 1][idxIn];
+                                else if (layers[layer - 1][idxIn] > pmax)
+                                    pmax = layers[layer - 1][idxIn];
                             }
+                        int idxOut = iHautOut * layerChan[layer] * layerWidth[layer] + iLargOut * layerChan[layer] + iChanOut;
                         if (layerType[layer] == 3)
-                            layers[layer][idx3 * layerSizes[layer] + idx1 * layerWidth[layer] + idx2] = sum / layerConvStep2[layer];
+                            layers[layer][idxOut] = sum / layerConvStep2[layer];
                         else
-                            layers[layer][idx3 * layerSizes[layer] + idx1 * layerWidth[layer] + idx2] = pmax;
+                            layers[layer][idxOut] = pmax;
                     }
         }
         // APPLY DROPOUT
@@ -1614,7 +1618,7 @@ int forwardProp(int image, int dp, int train, int lay)
                     layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
             }
         // Save in file
-        if ((layer == 10)||(layer == 11))
+        if ((layer == 10)||(layer == 11)||(layer == 12))
         {
             char name[30];
             sprintf(name, "layer%d.json", layer);
