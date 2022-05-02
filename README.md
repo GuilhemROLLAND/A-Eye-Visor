@@ -8,7 +8,7 @@
 | Weights 1            | weights10.json      | weights10.json            | Same      |
 | Bias 1               | bias10.json         | weights10.json, fin (865) | Same      |
 | Layer 1 result       | layer10.json        | layer10.json              | Leger Dec |
-| Layer 2 result       | ?                   | ?                         | ?         |
+| Layer 2 result       | layer11.json        | layer11.json              | ?         |
 | Weights 3            | ?                   | ?                         | ?         |
 | Bias 3               | ?                   | ?                         | ?         |
 | Layer 3 result       | ?                   | ?                         | ?         |

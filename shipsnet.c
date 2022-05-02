@@ -1581,11 +1581,6 @@ int forwardProp(int image, int dp, int train, int lay)
                     else if (dp == 1)
                         layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
                 }
-            // Save in file
-            if (layer == 10)
-            {
-                write_float_in_file("layer10.json", layers[layer], layerSizes[layer] * layerChan[layer]);
-            }
         }
         else if (layerType[layer] >= 2)
         { // POOLING LAYER (2=max, 3=avg)
@@ -1618,6 +1613,13 @@ int forwardProp(int image, int dp, int train, int lay)
                 else if (dp == 1)
                     layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
             }
+        // Save in file
+        if ((layer == 10)||(layer == 11))
+        {
+            char name[30];
+            sprintf(name, "layer%d.json", layer);
+            write_float_in_file(name, layers[layer], layerSizes[layer] * layerChan[layer]);
+        }
     }
 
     // OUTPUT LAYER - SOFTMAX ACTIVATION
