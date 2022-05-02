@@ -1550,11 +1550,11 @@ int forwardProp(int image, int dp, int train, int lay)
                                 {
                                     int i3 = iLargOut + iLargIn - dc;
                                     int j3 = iHautOut + iHautIn - dc;
-                                    int idxWeights = iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer] + iFilterOut;
+                                    int idxWeights = iFilterOut + iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer];
                                     float weight = weights[layer][idxWeights];
                                     if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
                                     {
-                                        float val = layers[layer - 1][i3 * layerWidth[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
+                                        float val = layers[layer - 1][i3 * layerWidth[layer - 1] * layerChan[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
                                         sum += val * weight;
                                     }
                                     else
