@@ -14,6 +14,8 @@
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
 #define INFERENCEMODE 1
+// Write lots of parameters into files in sauv/
+#define SAVEVALUES 1
 int rows = 0;
 char filename[] = "rescal_fl32.json";
 
@@ -940,10 +942,10 @@ void initNet(int t)
                     for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases
                         weights[idxLayer][layerConvStep[idxLayer] * layerChan[idxLayer] + i] = get_float_in_string(layerBias, i);
                 }
-                if ((idxLayer == 10)||(idxLayer == 12))
+                if (SAVEVALUES)
                 {
                     char nameFile[30];
-                    sprintf(nameFile, "weights%d.json", idxLayer);
+                    sprintf(nameFile, "sauve/weights%d.json", idxLayer);
                     write_float_in_file(nameFile, weights[idxLayer], (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]);
                 }
                 free(layerWeights);
@@ -1493,7 +1495,11 @@ int forwardProp(int image, int dp, int train, int lay)
             for (idx1 = 0; idx1 < trainColumns; idx1++)
                 layers[MAXLAYER - numLayers][idx1] = testImages[image][idx1];
     }
-    write_float_in_file("image_preprocessed.json", layers[9], layerSizes[9] * layerChan[9]);
+    if (SAVEVALUES)
+    {
+        write_float_in_file("sauve/image_preprocessed.json", layers[9], layerSizes[9] * layerChan[9]);
+    }
+
     // HIDDEN LAYERS
     for (layer = MAXLAYER + 1 - numLayers; layer < MAXLAYER - 1; layer++)
     {
@@ -1595,7 +1601,7 @@ int forwardProp(int image, int dp, int train, int lay)
                         for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
                             for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
                             {
-                                int idxIn = (2*iLargOut + iLargIn) * layerWidth[layer-1] * layerChan[layer-1] + (2*iHautOut + iHautIn) * layerChan[layer-1] + iChanOut;
+                                int idxIn = (2 * iLargOut + iLargIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iHautOut + iHautIn) * layerChan[layer - 1] + iChanOut;
                                 if (layerType[layer] == 3)
                                     sum += layers[layer - 1][idxIn];
                                 else if (layers[layer - 1][idxIn] > pmax)
@@ -1618,10 +1624,10 @@ int forwardProp(int image, int dp, int train, int lay)
                     layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
             }
         // Save in file
-        if ((layer == 10)||(layer == 11)||(layer == 12))
+        if (SAVEVALUES)
         {
             char name[30];
-            sprintf(name, "layer%d.json", layer);
+            sprintf(name, "sauve/layer%d.json", layer);
             write_float_in_file(name, layers[layer], layerSizes[layer] * layerChan[layer]);
         }
     }

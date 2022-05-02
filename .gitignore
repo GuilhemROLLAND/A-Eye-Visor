@@ -51,16 +51,11 @@ Module.symvers
 Mkfile.old
 dkms.conf
 shipsnet_debug.csv
-.gitignore
 shipsnet_train.csv
 shipsnet_test.csv
-export.txt
-json
 json_test
 shipsnet
 preprocess_ddr_test
 testPreprocess
 layers
-weights??.json
-image_preprocessed.json
-layer??.json
+sauve
