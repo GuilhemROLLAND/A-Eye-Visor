@@ -54,7 +54,9 @@
      * @param addr starting address of a BMP file
      * @return bmpImg array containing the image data as [px1R,px1G,px1B,px2R,px2G,px2B] 
      */
-    unsigned char* readImgBmp(unsigned char* addr);
+    unsigned char* headerBMP(unsigned char* addr);
+
+    unsigned char* readImg(unsigned char* addr, int length);
 
     /**
      * @brief this function crop the image on the side to have a squared shaped image.
@@ -78,7 +80,7 @@
     unsigned char* avgPooling(unsigned char* img, unsigned char width, unsigned char height, unsigned char poolingLength);
 
     /**
-     * @brief Performs a rescaling on the pixels value. Change values from [0;255] to [0;1]
+     * @brief Performs a rescaling on the pixels value. Change values from [0;255] to [-1;1]
      * 
      * @param img input img stored as [pxR1,pxG1,pxB1,pxR2,pxG2,pxB2, ...]
      * @param height height of the image
