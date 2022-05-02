@@ -53,13 +53,15 @@ unsigned long fsize(char *file)
     return len;
 }
 
-int convertFloatToString(float f, char *c){
+int convertFloatToString(float f, char *c)
+{
     int size = sprintf(c, "%f", f);
     return size;
 }
 
-char *write_float_in_buffer(float * ptrToFloat, int nbrFloat){
-    char *ret = calloc(sizeof(char), 20*nbrFloat+1);
+char *write_float_in_buffer(float *ptrToFloat, int nbrFloat)
+{
+    char *ret = calloc(sizeof(char), 30 * nbrFloat + 1);
     char *ptrWrite = ret;
     for (int i = 0; i < nbrFloat; i++)
     {
@@ -73,7 +75,8 @@ char *write_float_in_buffer(float * ptrToFloat, int nbrFloat){
     return ret;
 }
 
-int write_float_in_file(char *filename, float *ptrToFloat, int nbrFloat){
+int write_float_in_file(char *filename, float *ptrToFloat, int nbrFloat)
+{
     char *buff = write_float_in_buffer(ptrToFloat, nbrFloat);
     int ret = write_in_file(filename, buff);
     free(buff);
