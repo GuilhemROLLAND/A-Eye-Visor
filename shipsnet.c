@@ -15,7 +15,7 @@
 #define LOADDATASET 1
 #define INFERENCEMODE 1
 // Write lots of parameters into files in sauv/
-#define SAVEVALUES 1
+#define SAVEVALUES 0
 int rows = 0;
 char filename[] = "rescal_fl32.json";
 
@@ -395,7 +395,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_train.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -873,7 +873,7 @@ void initNet(int t)
                 weights[i] = (float *)malloc(sizeof(float));
         }
     }
-    // RANDOMIZE WEIGHTS AND BIAS
+    // WEIGHTS AND BIAS
     float scale;
     for (i = 0; i < MAXLAYER; i++)
         layers[i][layerSizes[i] * layerChan[i]] = 1.0;
@@ -913,12 +913,16 @@ void initNet(int t)
                         for (int iNeuron = 0; iNeuron < layerSizes[idxLayer]; iNeuron++)
                         {
                             float param = get_float_in_string(Node, iNeuron);
-                            weights[idxLayer][iNeuron * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) + idxInput] = param;
+                            int idx = idxInput * layerSizes[idxLayer] + iNeuron;
+                            weights[idxLayer][idx] = param;
                         }
                         free(Node);
                     }
-                    for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
-                        weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = get_float_in_string(layerBias, i);
+                    for (i = 0; i < layerSizes[idxLayer]; i++) // set biases 
+                    {
+                        int idx = layerSizes[idxLayer] * layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + i;
+                        weights[idxLayer][idx] = get_float_in_string(layerBias, i);
+                    }
                 }
                 else if (layerType[idxLayer] == 1)
                 {                                                                    // CONVOLUTION                                                               // CONVOLUTION
@@ -946,7 +950,16 @@ void initNet(int t)
                 {
                     char nameFile[30];
                     sprintf(nameFile, "sauve/weights%d.json", idxLayer);
-                    write_float_in_file(nameFile, weights[idxLayer], (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]);
+                    int nbrParam = 0;
+                    if (layerType[idxLayer] == 0) // FULLY CONNECTED
+                    {
+                        nbrParam = layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1);
+                    }
+                    else if (layerType[idxLayer] == 1) // CONVOLUTION
+                    {
+                        nbrParam = (layerConvStep[idxLayer] + 1) * layerChan[idxLayer];
+                    }
+                    write_float_in_file(nameFile, weights[idxLayer], nbrParam);
                 }
                 free(layerWeights);
                 free(layerBias);
@@ -1520,26 +1533,30 @@ int forwardProp(int image, int dp, int train, int lay)
 
         if (layerType[layer] == 0)
         { // FULLY CONNECTED LAYER
-            for (int iNeuron = 0; iNeuron < layerSizes[layer]; iNeuron++)
+            for (int iOut = 0; iOut < layerSizes[layer]; iOut++)
             {
-                if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][iNeuron] == 1)
+                if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][iOut] == 1)
                 {
-                    temp = iNeuron * (layerSizes[layer - 1] * layerChan[layer - 1] + 1);
                     sum = 0.0;
-                    for (int iIn = 0; iIn < layerSizes[layer - 1] * layerChan[layer - 1] + 1; iIn++)
-                        sum += layers[layer - 1][iIn] * weights[layer][temp + iIn];
+                    for (int iIn = 0; iIn < layerSizes[layer - 1] * layerChan[layer - 1]; iIn++)
+                    {
+                        int idxWeigth = iIn * layerSizes[layer] + iOut;
+                        sum += layers[layer - 1][iIn] * weights[layer][idxWeigth];
+                    }
+                    // Bias
+                    sum += weights[layer][layerSizes[layer - 1] * layerChan[layer - 1] * layerSizes[layer] + iOut];
                     if (activation == 0)
-                        layers[layer][iNeuron] = sum;
+                        layers[layer][iOut] = sum;
                     else if (activation == 1)
-                        layers[layer][iNeuron] = ReLU(sum);
+                        layers[layer][iOut] = ReLU(sum);
                     else
-                        layers[layer][iNeuron] = TanH(sum);
+                        layers[layer][iOut] = TanH(sum);
                     // if (dropOutRatio>0.0 && dp==1) layers[layer][i] = layers[layer][i]  / (1-dropOutRatio);
                     if (dropOutRatio > 0.0 && dp == 0 && DOdense == 1)
-                        layers[layer][iNeuron] = layers[layer][iNeuron] * (1 - dropOutRatio);
+                        layers[layer][iOut] = layers[layer][iOut] * (1 - dropOutRatio);
                 }
                 else
-                    layers[layer][iNeuron] = 0.0;
+                    layers[layer][iOut] = 0.0;
             }
         }
         else if (layerType[layer] == 1)
@@ -1645,6 +1662,7 @@ int forwardProp(int image, int dp, int train, int lay)
         esum += layers[MAXLAYER - 1][iOut];
     }
 
+
     // SOFTMAX FUNCTION
     max = layers[MAXLAYER - 1][0];
     imax = 0;
@@ -1658,6 +1676,10 @@ int forwardProp(int image, int dp, int train, int lay)
         layers[MAXLAYER - 1][iNeuron] = layers[MAXLAYER - 1][iNeuron] / esum;
     }
     prob = layers[MAXLAYER - 1][imax]; // ugly use of global variable :-(
+    if (SAVEVALUES)
+    {
+        write_float_in_file("sauve/layer19.json", layers[19], layerSizes[19] * layerChan[19]);
+    }
     // prob0 = layers[MAXLAYER-1][0];
     // prob1 = layers[MAXLAYER-1][2];
     // prob2 = layers[MAXLAYER-1][4];
