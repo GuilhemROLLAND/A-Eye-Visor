@@ -1,6 +1,7 @@
 # shipsnet
 
 ## Checklist
+On picture bateau3599.jpg with rescal_fl32.json  
 | Type                 | Status Python       | Status C                     | Remarque   |
 | :------------------- | :------------------ | :--------------------------- | :--------- |
 | Chargement image raw | image_raw           | OK                           | Same       |

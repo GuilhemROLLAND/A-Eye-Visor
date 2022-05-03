@@ -11,18 +11,18 @@
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 0
-#define IMPORTPARAMFROMJSON 0
+#define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define INFERENCEMODE 0
+#define INFERENCEMODE 1
 // Write lots of parameters into files in sauv/
-#define SAVEVALUES 0
-int rows = 0;
+#define SAVEVALUES 1
 char filename[] = "rescal_fl32.json";
 
 #define WIDTH 224
 #define COLORS 3
 #define MAXLAYER 20
 
+int rows = 0;
 // LOADING DATA
 int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias);
 int loadTest(int ct, int sh, int rc, float imgScale, float imgBias);
@@ -35,6 +35,7 @@ void randomizeTrainSet();
 void randomizeValidSet();
 void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t);
 void *runBackProp(void *arg);
+void *runInference(void *arg);
 int backProp(int x, float *ent, int ep);
 int forwardProp(int x, int dp, int train, int lay);
 float ReLU(float x);
@@ -63,7 +64,7 @@ int testColumns = 0;
 int inited = -1;
 int activation = 1; // 0=Identity, 1=ReLU, 2=TanH
 const int randomizeDescent = 1;
-float learn = .000001;
+float learn = .00001;
 int DOconv = 1, DOdense = 1, DOpool = 1;
 float dropOutRatio = 0.0, decay = 0.95;
 float augmentRatio = 0.2, weightScale = 1.0;
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
     int removeHeader = 0, removeCol1 = 0;
-    double validRatio = 0.6, divideBy = 127.5, subtractBy = 1;
+    double validRatio = 1., divideBy = 127.5, subtractBy = 1;
     if (LOADDATASET)
     {
         printf("Load train Set with validRatio = %f\n", validRatio);
@@ -203,7 +204,7 @@ int main(int argc, char *argv[])
     /*      INIT NET                                                      */
     /**********************************************************************/
     weightScale = 1.414;
-    int net = 2;
+    int net = 3;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
     initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
@@ -319,47 +320,7 @@ int main(int argc, char *argv[])
     printf("Running \n");
     if (INFERENCEMODE)
     {
-        randomizeValidSet();
-        working = 1;
-        int s2 = 0;
-        int entropy2 = 0;
-        int confusion[MAXLAYER][MAXLAYER] = {{0}};
-        int entSize = 0, accSize = 0, ent2Size = 0, acc2Size = 0;
-
-        for (int idxImage = 0; idxImage < validSetSize; idxImage++)
-        {
-            clock_t start, stop;
-            start = clock();
-            int pred = forwardProp(validSet[idxImage], 0, 1, 0);
-            stop = clock();
-            if (pred == -1)
-            {
-                printf("Test exploded.\n");
-                working = 0;
-                return -1;
-            }
-            if (pred == trainDigits[validSet[idxImage]])
-                s2++;
-            cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
-            confusion[trainDigits[validSet[idxImage]]][pred]++;
-            if (layers[MAXLAYER - 1][pred] == 0)
-            {
-                printf("Test vanished.\n");
-                working = 0;
-                return -1;
-            }
-            entropy2 -= log(layers[MAXLAYER - 1][pred]);
-            if (working == 0)
-            {
-                printf("learning stopped early\n");
-                pthread_exit(NULL);
-            }
-            printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
-            fflush(stdout);
-        }
-        printf("\n");
-        entropy2 = entropy2 / validSetSize;
-        printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
+        runInference(NULL);
     }
     else
     {
@@ -395,7 +356,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_train.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -809,7 +770,6 @@ void initNet(int t)
 
     if (IMPORTARCHFROMJSON)
     {
-        char filename[] = "example_file.json";
         char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
         ret = read_from_file(filename, buff2);
 
@@ -817,15 +777,14 @@ void initNet(int t)
 
         char *tab = get_tab_in_json(buff2, "arch");
 
-        char archCNN[size][20];
-        for (int i = 0; i < size; i++)
+        char archCNN[MAXLAYER][20] = {{0}};
+        for (int i = MAXLAYER - size; i < MAXLAYER; i++)
         {
-            memcpy(archCNN[i], "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20);
-            char *str_in_tab = get_str_in_tab(tab, i);
+            char *str_in_tab = get_str_in_tab(tab, i - (MAXLAYER - size));
             strcpy(archCNN[i], str_in_tab);
             free(str_in_tab);
         }
-        for (i = 0; i < MAXLAYER; i++)
+        for (int i = MAXLAYER - size; i < MAXLAYER; i++)
         {
             initArch(archCNN[i], i);
             sprintf(buf, "L%d", i);
@@ -898,7 +857,7 @@ void initNet(int t)
         {
             if (idxLayer >= MAXLAYER - numLayers + 1)
             {
-                char label[30] = {'\0'};
+                char label[30] = {0};
                 sprintf(label, "layer%i", idxLayerInFile);
                 char *layerWeights = get_tab_in_json(weightsStr, label);
                 idxLayerInFile++;
@@ -918,7 +877,7 @@ void initNet(int t)
                         }
                         free(Node);
                     }
-                    for (i = 0; i < layerSizes[idxLayer]; i++) // set biases 
+                    for (i = 0; i < layerSizes[idxLayer]; i++) // set biases
                     {
                         int idx = layerSizes[idxLayer] * layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + i;
                         weights[idxLayer][idx] = get_float_in_string(layerBias, i);
@@ -1292,13 +1251,58 @@ void *runBackProp(void *arg)
     return NULL;
 }
 
+void *runInference(void *arg)
+{
+    randomizeValidSet();
+    working = 1;
+    int s2 = 0;
+    int entropy2 = 0;
+    int confusion[MAXLAYER][MAXLAYER] = {{0}};
+    int entSize = 0, accSize = 0, ent2Size = 0, acc2Size = 0;
+
+    for (int idxImage = 0; idxImage < validSetSize; idxImage++)
+    {
+        clock_t start, stop;
+        start = clock();
+        int pred = forwardProp(validSet[idxImage], 0, 1, 0);
+        stop = clock();
+        if (pred == -1)
+        {
+            printf("Test exploded.\n");
+            working = 0;
+            return NULL;
+        }
+        if (pred == trainDigits[validSet[idxImage]])
+            s2++;
+        cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
+        confusion[trainDigits[validSet[idxImage]]][pred]++;
+        if (layers[MAXLAYER - 1][pred] == 0)
+        {
+            printf("Test vanished.\n");
+            working = 0;
+            return NULL;
+        }
+        entropy2 -= log(layers[MAXLAYER - 1][pred]);
+        if (working == 0)
+        {
+            printf("learning stopped early\n");
+            pthread_exit(NULL);
+        }
+        printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
+        fflush(stdout);
+    }
+    printf("\n");
+    entropy2 = entropy2 / validSetSize;
+    printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
+}
+
 /**********************************************************************/
 /*      NEURAL NETWORK                                                */
 /**********************************************************************/
 int backProp(int x, float *ent, int ep)
 {
     // BACK PROPAGATION WITH 1 TRAINING IMAGE
-    int i = 0, j, k, r = 0, d = 0, rot = 0, hres = 0, lres = 1;
+    int i = 0, j, k, concordance = 0, d = 0, rot = 0, hres = 0, lres = 1;
     float der = 1.0, xs = 0.0, ys = 0.0, extra = 0.0, sc = 1.0, sum;
     int dc, a, a2, i2, j2, i3, j3, pmax, imax, jmax;
     int temp, temp2;
@@ -1323,151 +1327,158 @@ int backProp(int x, float *ent, int ep)
             x = trainSizeE;
         }
     // FORWARD PROP FIRST
-    int p = forwardProp(x, 1, 1, 0);
-    if (p == -1)
+    int pred = forwardProp(x, 1, 1, 0);
+    if (pred == -1)
         return -1; // GRADIENT EXPLODED
     // CORRECT PREDICTION?
-    int y;
+    int goodValue;
     if (isDigits(inited) == 1)
-        y = trainDigits[x];
+        goodValue = trainDigits[x];
     else
-        y = trainColors[x];
-    if (p == y)
-        r = 1;
+        goodValue = trainColors[x];
+    if (pred == goodValue)
+        concordance = 1;
     // OUTPUT LAYER - CALCULATE ERRORS
-    for (i = 0; i < layerSizes[MAXLAYER - 1]; i++)
+    for (int idxLayer = 0; idxLayer < layerSizes[MAXLAYER - 1]; idxLayer++)
     {
-        errors[MAXLAYER - 1][i] = learn * (0 - layers[MAXLAYER - 1][i]) * pow(decay, ep);
-        if (i == y)
+        errors[MAXLAYER - 1][idxLayer] = learn * (0 - layers[MAXLAYER - 1][idxLayer]) * pow(decay, ep);
+        if (idxLayer == goodValue)
         {
-            errors[MAXLAYER - 1][i] = learn * (1 - layers[MAXLAYER - 1][i]) * pow(decay, ep);
-            if (layers[MAXLAYER - 1][i] == 0)
+            errors[MAXLAYER - 1][idxLayer] = learn * (1 - layers[MAXLAYER - 1][idxLayer]) * pow(decay, ep);
+            if (layers[MAXLAYER - 1][idxLayer] == 0)
                 return -1; // GRADIENT VANISHED
-            *ent = -log(layers[MAXLAYER - 1][i]);
+            *ent = -log(layers[MAXLAYER - 1][idxLayer]);
         }
     }
     // HIDDEN LAYERS - CALCULATE ERRORS
-    for (k = MAXLAYER - 2; k > MAXLAYER - numLayers; k--)
+    for (int idxLayer = MAXLAYER - 2; idxLayer > MAXLAYER - numLayers; idxLayer--)
     {
-        if (layerType[k + 1] == 0) // FEEDS INTO FULLY CONNECTED
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
+        if (layerType[idxLayer + 1] == 0)
+        { // FEEDS INTO FULLY CONNECTED
+            for (int idxParam = 0; idxParam < layerSizes[idxLayer] * layerChan[idxLayer]; idxParam++)
             {
-                errors[k][i] = 0.0;
-                if (dropOutRatio == 0.0 || DOdense == 0 || dropOut[k][i] == 1)
+                errors[idxLayer][idxParam] = 0.0;
+                if (dropOutRatio == 0.0 || DOdense == 0 || dropOut[idxLayer][idxParam] == 1)
                 { // dropout
                     if (activation == 2)
-                        der = (layers[k][i] + 1) * (1 - layers[k][i]); // TanH derivative
-                    if (activation == 0 || activation == 2 || layers[k][i] > 0)
+                        der = (layers[idxLayer][idxParam] + 1) * (1 - layers[idxLayer][idxParam]); // TanH derivative
+                    if (activation == 0 || activation == 2 || layers[idxLayer][idxParam] > 0)
                     { // this is ReLU derivative
-                        temp = layerSizes[k] * layerChan[k] + 1;
-                        for (j = 0; j < layerSizes[k + 1]; j++)
-                            errors[k][i] += errors[k + 1][j] * weights[k + 1][j * temp + i] * der;
+                        int step = layerSizes[idxLayer + 1];
+                        for (int idxIn = 0; idxIn < layerSizes[idxLayer + 1]; idxIn++)
+                            errors[idxLayer][idxParam] += errors[idxLayer + 1][idxIn] * weights[idxLayer + 1][idxParam * step + idxIn] * der;
                     }
                 }
             }
-        else if (layerType[k + 1] == 1)
+        }
+        else if (layerType[idxLayer + 1] == 1)
         { // FEEDS INTO CONVOLUTION
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                errors[k][i] = 0.0;
+            for (int iParam = 0; iParam < layerSizes[idxLayer] * layerChan[idxLayer]; iParam++)
+                errors[idxLayer][iParam] = 0.0;
             dc = 0;
-            if (layerPad[k + 1] == 1)
-                dc = layerConv[k + 1] / 2;
-            for (a = 0; a < layerChan[k + 1]; a++)
-                for (i = 0; i < layerWidth[k + 1]; i++)
-                    for (j = 0; j < layerWidth[k + 1]; j++)
+            if (layerPad[idxLayer + 1] == 1)
+                dc = layerConv[idxLayer + 1] / 2;
+            for (int iProfOut = 0; iProfOut < layerChan[idxLayer]; iProfOut++)
+                for (int iLargOut = 0; iLargOut < layerConv[idxLayer + 1]; iLargOut++)
+                    for (int iHautOut = 0; iHautOut < layerConv[idxLayer + 1]; iHautOut++)
                     {
-                        temp = a * (layerConvStep[k + 1] + 1);
-                        temp2 = a * layerSizes[k + 1] + i * layerWidth[k + 1] + j;
-                        for (a2 = 0; a2 < layerChan[k]; a2++)
-                            for (i2 = 0; i2 < layerConv[k + 1]; i2++)
-                                for (j2 = 0; j2 < layerConv[k + 1]; j2++)
+                        for (int iProfIn = 0; iProfIn < layerChan[idxLayer + 1]; iProfIn++)
+                            for (int iLargIn = 0; iLargIn < layerWidth[idxLayer + 1]; iLargIn++)
+                                for (int iHautIn = 0; iHautIn < layerWidth[idxLayer + 1]; iHautIn++)
                                 {
-                                    i3 = i + i2 - dc;
-                                    j3 = j + j2 - dc;
+                                    int i3 = iLargIn + iLargOut - dc;
+                                    int j3 = iHautIn + iHautOut - dc;
                                     if (activation == 2)
-                                        der = (layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] + 1) * (1 - layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3]); // TanH
-                                    if (activation == 0 || activation == 2 || layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] > 0)                                   // this is ReLU derivative
-                                        if (i3 >= 0 && i3 < layerWidth[k] && j3 >= 0 && j3 < layerWidth[k])                                                                  // padding
-                                            errors[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] +=
-                                                weights[k + 1][temp + a2 * layerConvStep2[k + 1] + i2 * layerConv[k + 1] + j2] * errors[k + 1][temp2] * der;
+                                        der = (layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3] + 1) * (1 - layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3]); // TanH
+                                    if (activation == 0 || activation == 2 || layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3] > 0)                                                              // this is ReLU derivative
+                                        if (i3 >= 0 && i3 < layerWidth[idxLayer] && j3 >= 0 && j3 < layerWidth[idxLayer])                                                                                                          // padding
+                                        {
+                                            int idxErrorsOut = j3 * layerWidth[idxLayer] * layerChan[idxLayer] + i3 * layerChan[idxLayer] + iProfOut;
+                                            int idxWeights = iProfOut * layerWidth[idxLayer + 1] * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iHautIn * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iLargIn * layerChan[idxLayer + 1] + iProfIn;
+                                            int idxErrorsIn = iHautIn * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iLargIn * layerChan[idxLayer + 1] + iProfIn;
+                                            errors[idxLayer][idxErrorsOut] += weights[idxLayer + 1][idxWeights] * errors[idxLayer + 1][idxErrorsIn] * der;
+                                        }
                                 }
                     }
             if (dropOutRatio > 0.0 && DOconv == 1) // dropout
-                for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                    errors[k][i] = errors[k][i] * dropOut[k][i];
+                for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                    errors[idxLayer][i] = errors[idxLayer][i] * dropOut[idxLayer][i];
         }
-        else if (layerType[k + 1] >= 2)
+        else if (layerType[idxLayer + 1] >= 2)
         { // FEEDS INTO POOLING (2=max, 3=avg)
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                errors[k][i] = 0.0;
-            for (a = 0; a < layerChan[k]; a++)
-                for (i = 0; i < layerWidth[k + 1]; i++)
-                    for (j = 0; j < layerWidth[k + 1]; j++)
+            for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                errors[idxLayer][i] = 0.0;
+            for (a = 0; a < layerChan[idxLayer]; a++)
+                for (i = 0; i < layerWidth[idxLayer + 1]; i++)
+                    for (j = 0; j < layerWidth[idxLayer + 1]; j++)
                     {
                         pmax = -1e6;
-                        if (layerType[k + 1] == 3)
-                            temp = errors[k + 1][a * layerSizes[k + 1] + i * layerWidth[k + 1] + j] / layerConvStep2[k + 1];
-                        for (i2 = 0; i2 < layerConv[k + 1]; i2++)
-                            for (j2 = 0; j2 < layerConv[k + 1]; j2++)
+                        if (layerType[idxLayer + 1] == 3)
+                            temp = errors[idxLayer + 1][a * layerSizes[idxLayer + 1] + i * layerWidth[idxLayer + 1] + j] / layerConvStep2[idxLayer + 1];
+                        for (i2 = 0; i2 < layerConv[idxLayer + 1]; i2++)
+                            for (j2 = 0; j2 < layerConv[idxLayer + 1]; j2++)
                             {
-                                if (layerType[k + 1] == 3)
-                                    errors[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2] = temp;
-                                else if (layers[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2] > pmax)
+                                if (layerType[idxLayer + 1] == 3)
+                                    errors[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2] = temp;
+                                else if (layers[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2] > pmax)
                                 {
-                                    pmax = layers[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2];
+                                    pmax = layers[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2];
                                     imax = i2;
                                     jmax = j2;
                                 }
                             }
-                        if (layerType[k + 1] == 2)
-                            errors[k][a * layerSizes[k] + (i * layerStride[k + 1] + imax) * layerWidth[k] + j * layerStride[k + 1] + jmax] =
-                                errors[k + 1][a * layerSizes[k + 1] + i * layerWidth[k + 1] + j];
+                        if (layerType[idxLayer + 1] == 2)
+                            errors[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + imax) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + jmax] =
+                                errors[idxLayer + 1][a * layerSizes[idxLayer + 1] + i * layerWidth[idxLayer + 1] + j];
                     }
             if (dropOutRatio > 0.0 && DOpool == 1) // dropout
-                for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                    errors[k][i] = errors[k][i] * dropOut[k][i];
+                for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                    errors[idxLayer][i] = errors[idxLayer][i] * dropOut[idxLayer][i];
         }
     }
 
     // UPDATE WEIGHTS - GRADIENT DESCENT
     int count = 0;
-    for (k = MAXLAYER + 1 - numLayers; k < MAXLAYER; k++)
+    for (int idxLayer = MAXLAYER + 1 - numLayers; idxLayer < MAXLAYER; idxLayer++)
     {
-        if (layerType[k] == 0)
+        if (layerType[idxLayer] == 0)
         { // FULLY CONNECTED LAYER
-            for (i = 0; i < layerSizes[k]; i++)
+            for (int iOut = 0; iOut < layerSizes[idxLayer]; iOut++)
             {
-                temp = i * (layerSizes[k - 1] * layerChan[k - 1] + 1);
-                for (j = 0; j < layerSizes[k - 1] * layerChan[k - 1] + 1; j++)
-                    weights[k][temp + j] += errors[k][i] * layers[k - 1][j];
+                for (int iIn = 0; iIn < layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]; iIn++)
+                    weights[idxLayer][iIn * layerSizes[idxLayer] + iOut] += errors[idxLayer][iOut] * layers[idxLayer - 1][iIn];
             }
         }
-        else if (layerType[k] == 1)
+        else if (layerType[idxLayer] == 1)
         { // CONVOLUTION LAYER
             dc = 0;
-            if (layerPad[k] == 1)
-                dc = layerConv[k] / 2;
-            for (a = 0; a < layerChan[k]; a++)
-                for (i = 0; i < layerWidth[k]; i++)
-                    for (j = 0; j < layerWidth[k]; j++)
+            if (layerPad[idxLayer] == 1)
+                dc = layerConv[idxLayer] / 2;
+            for (int iHautOut = 0; iHautOut < layerWidth[idxLayer]; iHautOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[idxLayer]; iLargOut++)
+                    for (int iProfOut = 0; iProfOut < layerChan[idxLayer]; iProfOut++)
                     {
-                        temp = a * (layerConvStep[k] + 1);
-                        temp2 = a * layerSizes[k] + i * layerWidth[k] + j;
-                        for (a2 = 0; a2 < layerChan[k - 1]; a2++)
-                            for (i2 = 0; i2 < layerConv[k]; i2++)
-                                for (j2 = 0; j2 < layerConv[k]; j2++)
+                        int idxErrors = iHautOut * layerWidth[idxLayer] * layerChan[idxLayer] + iLargOut * layerChan[idxLayer] + iProfOut;
+                        for (int iHautIn = 0; iHautIn < layerConv[idxLayer]; iHautIn++)
+                            for (int iLargIn = 0; iLargIn < layerConv[idxLayer]; iLargIn++)
+                                for (int iProfIn = 0; iProfIn < layerChan[idxLayer - 1]; iProfIn++)
                                 {
-                                    i3 = i + i2 - dc;
-                                    j3 = j + j2 - dc;
-                                    if (i3 >= 0 && i3 < layerWidth[k - 1] && j3 >= 0 && j3 < layerWidth[k - 1])
-                                        weights[k][temp + a2 * layerConvStep2[k] + i2 * layerConv[k] + j2] +=
-                                            errors[k][temp2] * layers[k - 1][a2 * layerSizes[k - 1] + i3 * layerWidth[k - 1] + j3];
+                                    int i3 = iLargOut + iLargIn - dc;
+                                    int j3 = iHautOut + iHautIn - dc;
+                                    int idxWeights = iProfIn * layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer] + iHautOut * layerConv[idxLayer] * layerChan[idxLayer] + iLargOut * layerChan[idxLayer] + iProfOut;
+                                    int idxVal = j3 * layerConv[idxLayer] * layerChan[idxLayer - 1] + i3 * layerChan[idxLayer - 1] + iProfIn;
+                                    if (i3 >= 0 && i3 < layerWidth[idxLayer - 1] && j3 >= 0 && j3 < layerWidth[idxLayer - 1])
+                                    {
+                                        weights[idxLayer][idxWeights] += errors[idxLayer][idxErrors] * layers[idxLayer - 1][idxVal];
+                                    }
                                 }
-                        weights[k][(a + 1) * (layerConvStep[k] + 1) - 1] += errors[k][a * layerSizes[k] + i * layerWidth[k] + j];
+                        // bias
+                        int idxWeights = (layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer - 1] * layerChan[idxLayer]) + iProfOut;
+                        weights[idxLayer][idxWeights] += errors[idxLayer][idxErrors];
                     }
         }
     }
-    return r;
+    return concordance;
 }
 
 /**********************************************************************/
@@ -1661,7 +1672,6 @@ int forwardProp(int image, int dp, int train, int lay)
             return -1; // GRADIENTS EXPLODED
         esum += layers[MAXLAYER - 1][iOut];
     }
-
 
     // SOFTMAX FUNCTION
     max = layers[MAXLAYER - 1][0];

@@ -55,7 +55,7 @@ unsigned long fsize(char *file)
 
 int convertFloatToString(float f, char *c)
 {
-    int size = sprintf(c, "%f", f);
+    int size = sprintf(c, "%.16f", f);
     return size;
 }
 
@@ -92,8 +92,9 @@ int get_int_in_json(char *buffer, char *param)
     }
     int sizeParam = strlen(param);
     ptr += sizeParam;
-    ptr += 2; // Skip ":
-    return atoi(ptr);
+    ptr = go_to_number(ptr);
+    int val = atoi(ptr);
+    return val;
 }
 
 char *get_str_in_json(char *buffer, char *param)
