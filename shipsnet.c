@@ -356,7 +356,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_one_V2.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
