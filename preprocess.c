@@ -59,74 +59,57 @@ unsigned char* encodageBMP(unsigned char* addr, int size) {
     unsigned char *bmpImg;
     unsigned char tempRGB;
     unsigned char *ptr_img = (unsigned char*) addr;
-    unsigned char *ptr_fileheader;
-    unsigned char *ptr_infoheader; 
     if ((bmpImg = malloc(sizeof(BITMAPFILEHEADER)+ sizeof(BITMAPINFOHEADER) + size * sizeof(unsigned char))) == NULL)
         printf("erreur allocation mémoire");
     // initialisation du pointeur mémoire a l'adresse de démarrage
     BITMAPFILEHEADER* fileheader;
-    if ((fileheader = malloc(sizeof(BITMMAFILEHEADER))) == NULL)
+    if ((fileheader = malloc(sizeof(BITMAPFILEHEADER))) == NULL)
         printf("erreur allocation mémoire \n");
     BITMAPINFOHEADER* infoheader;
-    if ((infoheader = malloc(sizeof(BITMMAinfoHEADER))) == NULL)
+    if ((infoheader = malloc(sizeof(BITMAPINFOHEADER))) == NULL)
         printf("erreur allocation mémoire \n");
+    
+    // Création du FileHeader 
+
     fileheader->fType = 0x424d;
     fileheader->fSize = NULL; // TO DO : calculer la taille d'une image standard 640*480
     fileheader->fReserved1 = 0x00;
     fileheader->fReserved2 = 0x00;
     fileheader->fOffBits = NULL; // TO DO : specifier offset pour image standard
 
-    infoheader->size = 
+    // Création de l'InfoHeader 
+
+    infoheader->size = 0x7c000000;
     infoheader->width = 0x80020000
     infoheader->height = 0xe0010000;
-    infoheader->planes = 0x01;
-    infoheader->bitCount = 0x; //To do : suite du info header (bitcount = 24 en hexa)
-    infoheader->
-    BITMAPINFOHEADER* ptr_info = (BITMAPINFOHEADER*) (ptr_img +0xe);
-    ptr_header->fType = __bswap_16(ptr_header->fType);
-    ptr_header->fSize = __bswap_32(ptr_header->fSize);
-    ptr_header->fReserved1 = __bswap_16(ptr_header->fReserved1);
-    ptr_header->fReserved2 = __bswap_16(ptr_header->fReserved2);
-    ptr_header->fOffBits = __bswap_32(ptr_header->fOffBits);
-    ptr_info->size = __bswap_32(ptr_info->size);
-    ptr_info->width = __bswap_32(ptr_info->width);
-    ptr_info->height = __bswap_32(ptr_info->height);
-    ptr_info->planes = __bswap_16(ptr_info->planes);
-    ptr_info->bitCount = __bswap_16(ptr_info->bitCount);
-    ptr_info->compression = __bswap_32(ptr_info->compression);
-    ptr_info->sizeImage = __bswap_32(ptr_info->sizeImage);
-    ptr_info->xPelsPerMeter = __bswap_32(ptr_info->xPelsPerMeter);
-    ptr_info->yPelsPerMeter = __bswap_32(ptr_info->yPelsPerMeter);
-    ptr_info->clrUsed = __bswap_32(ptr_info->clrUsed);
-    ptr_info->clrImportant = __bswap_32(ptr_info->clrImportant);
-    bmpImg  = (unsigned char*) malloc(ptr_info->sizeImage*sizeof(unsigned char));
-    if (!bmpImg)
+    infoheader->planes = 0x0100;
+    infoheader->bitCount = 0x2000; 
+    infoheader->compression = 0x00000000;
+    infoheader->sizeImage = 0x000E1000;
+    infoheader->xPelsPerMeter = NULL;
+    infoheader->yPelsPerMeter = NULL;
+    infoheader->clrUsed = 0x01000000;
+    infoheader->clrImportant = 0x00000000;
+
+    //Ecriture des données header dans un fichier
+
+    FILE* imageFile = fopen('ImageBMP.bmp', "wb");
+    fwrite(fileheader, sizeof(BITMAPFILEHEADER), 1, imageFile);
+    fwrite(infoheader, sizeof(BITMAPINFOHEADER), 1, imageFile);
+
+    //Ecriture des données de l'image dans le fichier avec inversion des couleurs
+
+    int n = 0;
+    for (int i = 0; i < 640*480; i++)
     {
-        free(bmpImg);
-        printf("probleme d'allocation\n");
-        return NULL;
-    }
-    unsigned char* ptr_img_data = ptr_img +0x8a;
-    for (int n = 0; n < __bswap_32(ptr_info->sizeImage); n++)
-    {
-        bmpImg[n] = *ptr_img_data;
-        ptr_img_data += 1;
+        for (n; n > ((i+1)*3)-2; n--)
+        {
+            fwrite(*(ptr_img+n), sizeof(unsigned char), 1, imageFile);
+            n += 3;
+        }
     }
 
-    for (int i = 3; i < ptr_info->sizeImage; i+=4)
-    {
-        bmpImg[i] = bmpImg[i+1];
-        bmpImg[i+1] = bmpImg[i+2];
-        bmpImg[i+2] = bmpImg[i+3];
-    }
-
-    for (int i=0; i < ptr_info->sizeImage; i+=3)
-    {
-        tempRGB = bmpImg[i];
-        bmpImg[i] = bmpImg[i + 2];
-        bmpImg[i + 2] = tempRGB;
-    }
-    return bmpImg;
+    fclose(imageFile);
 }
 
 unsigned char* readImg(unsigned char* addr, int length) {
