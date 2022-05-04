@@ -16,7 +16,7 @@
 #define INFERENCEMODE 1
 // Write lots of parameters into files in sauv/
 #define SAVEVALUES 1
-char filename[] = "rescal_fl32.json";
+char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
 #define COLORS 3
@@ -356,7 +356,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_one_V2.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -908,7 +908,7 @@ void initNet(int t)
                 if (SAVEVALUES)
                 {
                     char nameFile[30];
-                    sprintf(nameFile, "sauve/weights%d.json", idxLayer);
+                    sprintf(nameFile, "sauve/weights%d_c.json", idxLayer);
                     int nbrParam = 0;
                     if (layerType[idxLayer] == 0) // FULLY CONNECTED
                     {
@@ -1521,7 +1521,7 @@ int forwardProp(int image, int dp, int train, int lay)
     }
     if (SAVEVALUES)
     {
-        write_float_in_file("sauve/image_preprocessed.json", layers[9], layerSizes[9] * layerChan[9]);
+        write_float_in_file("sauve/image_preprocessed_c.json", layers[9], layerSizes[9] * layerChan[9]);
     }
 
     // HIDDEN LAYERS
@@ -1655,7 +1655,7 @@ int forwardProp(int image, int dp, int train, int lay)
         if (SAVEVALUES)
         {
             char name[30];
-            sprintf(name, "sauve/layer%d.json", layer);
+            sprintf(name, "sauve/layer%d_c.json", layer);
             write_float_in_file(name, layers[layer], layerSizes[layer] * layerChan[layer]);
         }
     }
@@ -1688,7 +1688,7 @@ int forwardProp(int image, int dp, int train, int lay)
     prob = layers[MAXLAYER - 1][imax]; // ugly use of global variable :-(
     if (SAVEVALUES)
     {
-        write_float_in_file("sauve/layer19.json", layers[19], layerSizes[19] * layerChan[19]);
+        write_float_in_file("sauve/layer19_c.json", layers[19], layerSizes[19] * layerChan[19]);
     }
     // prob0 = layers[MAXLAYER-1][0];
     // prob1 = layers[MAXLAYER-1][2];
