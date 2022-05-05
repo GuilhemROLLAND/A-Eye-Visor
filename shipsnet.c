@@ -11,11 +11,10 @@
 
 #define USEDEBUGPARAM 1
 #define IMPORTARCHFROMJSON 0
-#define IMPORTPARAMFROMJSON 1
+#define IMPORTPARAMFROMJSON 0
 #define LOADDATASET 1
-#define INFERENCEMODE 1
-// Write lots of parameters into files in sauv/
-#define SAVEVALUES 1
+#define INFERENCEMODE 0
+#define SAVEVALUES 0
 char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
@@ -64,7 +63,7 @@ int testColumns = 0;
 int inited = -1;
 int activation = 1; // 0=Identity, 1=ReLU, 2=TanH
 const int randomizeDescent = 1;
-float learn = .00001;
+float learn = .0001;
 int DOconv = 1, DOdense = 1, DOpool = 1;
 float dropOutRatio = 0.0, decay = 0.95;
 float augmentRatio = 0.2, weightScale = 1.0;
@@ -190,7 +189,7 @@ int main(int argc, char *argv[])
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
     int removeHeader = 0, removeCol1 = 0;
-    double validRatio = 1., divideBy = 127.5, subtractBy = 1;
+    double validRatio = .2, divideBy = 127.5, subtractBy = 1;
     if (LOADDATASET)
     {
         printf("Load train Set with validRatio = %f\n", validRatio);
@@ -204,7 +203,7 @@ int main(int argc, char *argv[])
     /*      INIT NET                                                      */
     /**********************************************************************/
     weightScale = 1.414;
-    int net = 3;
+    int net = 1;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
     initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
@@ -356,7 +355,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_one.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_train.csv"; // shipsnet_train.csv
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -1166,6 +1165,7 @@ void *runBackProp(void *arg)
                 printf("learning stopped early\n");
                 pthread_exit(NULL);
             }
+            printf("Ratio : %.2f\r", (float) sumBp / ((float) idxImage + 1.));
         }
         entropy = entropy / trainSize;
         s2 = 0;
