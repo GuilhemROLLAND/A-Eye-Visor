@@ -19,3 +19,16 @@ On picture bateau3599.jpg with rescal_fl32.json and rescaling by hand
 | Weights 19           | weights19.json         | weights19.json                   | Same       |
 | Bias 19              | bias19.json            | weigths19.json, fin (65)         | Same       |
 | Layer 19 result      | layer19.json           | layer19.json                     | Leger Diff |
+
+## Processing Time
+Process convolution 10 in 0.408835 (23%)  
+Process pooling 11 in 0.013619 (<1%)  
+Process convolution 12 in 1.007322 (60%)  
+Process pooling 13 in 0.003363 (<1%)  
+Process convolution 14 in 0.250229 (14%)  
+Process pooling 15 in 0.000806 (<1%)  
+Process convolution 16 in 0.062159 (4%)  
+Process pooling 17 in 0.000244 (<1%)  
+Process fully connected 18 in 0.000853 (<1%)  
+Process Output layer 19 in 0.000012 (<1%)  
+Process 1/1 pics (1.755841 sec/pic) with 100.00 good predictions  

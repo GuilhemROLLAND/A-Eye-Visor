@@ -10,11 +10,13 @@
 #include "json.h"
 
 #define USEDEBUGPARAM 1
-#define IMPORTARCHFROMJSON 0
-#define IMPORTPARAMFROMJSON 0
+#define IMPORTARCHFROMJSON 1
+#define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define INFERENCEMODE 0
+#define INFERENCEMODE 1
+#define TESTONONE 1
 #define SAVEVALUES 0
+#define DISPLAYTIME 1
 char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
@@ -120,7 +122,7 @@ int requestInit = 0;
 char nets[9][MAXLAYER][20] =
     {{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "10", "2"},
-     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "C3:4:1", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "2"},
      {"", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "32", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "10", "10", "2"},
      {"", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
@@ -190,6 +192,10 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     int removeHeader = 0, removeCol1 = 0;
     double validRatio = .2, divideBy = 127.5, subtractBy = 1;
+    if (TESTONONE)
+    {
+        validRatio = 1.;
+    }
     if (LOADDATASET)
     {
         printf("Load train Set with validRatio = %f\n", validRatio);
@@ -203,7 +209,7 @@ int main(int argc, char *argv[])
     /*      INIT NET                                                      */
     /**********************************************************************/
     weightScale = 1.414;
-    int net = 1;
+    int net = 2;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
     initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
@@ -355,7 +361,12 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     float rnd;
     // READ IN TRAIN.CSV
     char buffer[1000000];
-    char name[80] = "shipsnet_train.csv"; // shipsnet_train.csv
+    char name[80] = "shipsnet_train.csv";
+    if (TESTONONE)
+    {
+        strcpy(name, "shipsnet_one.csv");
+    }
+    printf("Loading %s\n", name);
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -801,9 +812,9 @@ void initNet(int t)
                 numLayers = MAXLAYER - i;
         }
     }
-    sprintf(buf, "L%d", i);
-    if (numLayers == 0 && layerSizes[i] != 0)
-        numLayers = MAXLAYER - i;
+    // sprintf(buf, "L%d", i);
+    // if (numLayers == 0 && layerSizes[i] != 0)
+    //     numLayers = MAXLAYER - i;
     // printf("\n");
 
     // ALOCATE MEMORY
@@ -1165,8 +1176,10 @@ void *runBackProp(void *arg)
                 printf("learning stopped early\n");
                 pthread_exit(NULL);
             }
-            printf("Ratio : %.2f\r", (float) sumBp / ((float) idxImage + 1.));
+            printf("Ratio : %.2f\r", (float)sumBp / ((float)idxImage + 1.));
+            fflush(stdout);
         }
+        printf("\n");
         entropy = entropy / trainSize;
         s2 = 0;
         entropy2 = 0.0;
@@ -1339,15 +1352,15 @@ int backProp(int x, float *ent, int ep)
     if (pred == goodValue)
         concordance = 1;
     // OUTPUT LAYER - CALCULATE ERRORS
-    for (int idxLayer = 0; idxLayer < layerSizes[MAXLAYER - 1]; idxLayer++)
+    for (int iNeuron = 0; iNeuron < layerSizes[MAXLAYER - 1]; iNeuron++)
     {
-        errors[MAXLAYER - 1][idxLayer] = learn * (0 - layers[MAXLAYER - 1][idxLayer]) * pow(decay, ep);
-        if (idxLayer == goodValue)
+        errors[MAXLAYER - 1][iNeuron] = learn * (0 - layers[MAXLAYER - 1][iNeuron]) * pow(decay, ep);
+        if (iNeuron == goodValue)
         {
-            errors[MAXLAYER - 1][idxLayer] = learn * (1 - layers[MAXLAYER - 1][idxLayer]) * pow(decay, ep);
-            if (layers[MAXLAYER - 1][idxLayer] == 0)
+            errors[MAXLAYER - 1][iNeuron] = learn * (1 - layers[MAXLAYER - 1][iNeuron]) * pow(decay, ep);
+            if (layers[MAXLAYER - 1][iNeuron] == 0)
                 return -1; // GRADIENT VANISHED
-            *ent = -log(layers[MAXLAYER - 1][idxLayer]);
+            *ent = -log(layers[MAXLAYER - 1][iNeuron]);
         }
     }
     // HIDDEN LAYERS - CALCULATE ERRORS
@@ -1465,7 +1478,7 @@ int backProp(int x, float *ent, int ep)
                                 {
                                     int i3 = iLargOut + iLargIn - dc;
                                     int j3 = iHautOut + iHautIn - dc;
-                                    int idxWeights = iProfIn * layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer] + iHautOut * layerConv[idxLayer] * layerChan[idxLayer] + iLargOut * layerChan[idxLayer] + iProfOut;
+                                    int idxWeights = iProfOut * layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer - 1] + iHautIn * layerConv[idxLayer] * layerChan[idxLayer - 1] + iLargIn * layerChan[idxLayer - 1] + iProfIn;
                                     int idxVal = j3 * layerConv[idxLayer] * layerChan[idxLayer - 1] + i3 * layerChan[idxLayer - 1] + iProfIn;
                                     if (i3 >= 0 && i3 < layerWidth[idxLayer - 1] && j3 >= 0 && j3 < layerWidth[idxLayer - 1])
                                     {
@@ -1544,6 +1557,11 @@ int forwardProp(int image, int dp, int train, int lay)
 
         if (layerType[layer] == 0)
         { // FULLY CONNECTED LAYER
+            clock_t start, stop;
+            if (DISPLAYTIME)
+            {
+                start = clock();
+            }
             for (int iOut = 0; iOut < layerSizes[layer]; iOut++)
             {
                 if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][iOut] == 1)
@@ -1569,9 +1587,19 @@ int forwardProp(int image, int dp, int train, int lay)
                 else
                     layers[layer][iOut] = 0.0;
             }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process fully connected %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
         }
         else if (layerType[layer] == 1)
         { // CONVOLUTION LAYER
+            clock_t start, stop;
+            if (DISPLAYTIME)
+            {
+                start = clock();
+            }
             dc = 0;
             if (layerPad[layer] == 1)
                 dc = layerConv[layer] / 2;
@@ -1617,9 +1645,19 @@ int forwardProp(int image, int dp, int train, int lay)
                     else if (dp == 1)
                         layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
                 }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process convolution %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
         }
         else if (layerType[layer] >= 2)
         { // POOLING LAYER (2=max, 3=avg)
+            clock_t start, stop;
+            if (DISPLAYTIME)
+            {
+                start = clock();
+            }
             for (int iChanOut = 0; iChanOut < layerChan[layer]; iChanOut++)
                 for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
                     for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
@@ -1641,6 +1679,11 @@ int forwardProp(int image, int dp, int train, int lay)
                         else
                             layers[layer][idxOut] = pmax;
                     }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process pooling %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
         }
         // APPLY DROPOUT
         if (dropOutRatio > 0.0 && DOpool == 1)
@@ -1659,7 +1702,11 @@ int forwardProp(int image, int dp, int train, int lay)
             write_float_in_file(name, layers[layer], layerSizes[layer] * layerChan[layer]);
         }
     }
-
+    clock_t start, stop;
+    if (DISPLAYTIME)
+    {
+        start = clock();
+    }
     // OUTPUT LAYER - SOFTMAX ACTIVATION
     esum = 0.0;
     for (int iOut = 0; iOut < layerSizes[MAXLAYER - 1]; iOut++)
@@ -1689,6 +1736,11 @@ int forwardProp(int image, int dp, int train, int lay)
     if (SAVEVALUES)
     {
         write_float_in_file("sauve/layer19_c.json", layers[19], layerSizes[19] * layerChan[19]);
+    }
+    if (DISPLAYTIME)
+    {
+        stop = clock();
+        printf("Process Output layer %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
     }
     // prob0 = layers[MAXLAYER-1][0];
     // prob1 = layers[MAXLAYER-1][2];
