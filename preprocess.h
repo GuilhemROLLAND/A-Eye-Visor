@@ -48,15 +48,14 @@
     // FUNCTIONS
 
     /**
-     * @brief 
-     * Take an address of a starting image in DDR (theorically) and extract informations from BMP 
-     * header to corresponding structure. Place the image data into an array of corresponding size
-     * @param addr starting address of a BMP file
-     * @return bmpImg array containing the image data as [px1R,px1G,px1B,px2R,px2G,px2B] 
+     * @brief read a 640*480 image
+     * 
+     * @param addr addr of the first data stored in the memory
+     * @param width width of the image 
+     * @param height  height of the image 
+     * @return unsigned char* addr of the first element of an array containing the img data
      */
-    unsigned char* headerBMP(unsigned char* addr);
-
-    unsigned char* readImg(unsigned char* addr, int length);
+    unsigned char* readImg(unsigned char* addr, int width, int height);
 
     /**
      * @brief this function crop the image on the side to have a squared shaped image.
@@ -67,7 +66,7 @@
      * @param pixelsToCrop sum of cropping on both sides
      * @return unsigned* pointer to the resized image
      */
-    unsigned char* resizeImg(unsigned char* bmpImg, unsigned char width, unsigned char length, unsigned char pixelsToCrop);
+    unsigned char* resizeImg(unsigned char* bmpImg, int width, int length, int pixelsToCrop);
 
     /**
      * @brief This function performs an average pooling on an img stored as [pxR1,pxG1,pxB1,pxR2,pxG2,pxB2, ...]
@@ -77,7 +76,7 @@
      * @param poolingLength size of the pooling filter. always square shaped (if pooling is 2, kernel is 2*2)
      * @return unsigned char* pointer to the pooled img. 
      */
-    unsigned char* avgPooling(unsigned char* img, unsigned char width, unsigned char height, unsigned char poolingLength);
+    unsigned char* avgPooling(unsigned char* img, int width, int height, unsigned char poolingLength);
 
     /**
      * @brief Performs a rescaling on the pixels value. Change values from [0;255] to [-1;1]
@@ -87,6 +86,17 @@
      * @param width width of the image. must be *3 if the image is RGB 
      * @return float* 
      */
-    float* rescaling(unsigned char* img, unsigned char height, unsigned char width);
+    float* rescaling(unsigned char* img, int height, int width);
+
+    /**
+     * @brief performs a max pooling on the input img 
+     * 
+     * @param img input img
+     * @param width of the img
+     * @param height of the img
+     * @param poolingLength size of the pooling window (ex poolingLength = 2 is a (2,2) window)
+     * @return unsigned char* maxPooled img
+     */
+    unsigned char* maxPooling(unsigned char* img, int width, int height, unsigned char poolingLength);
 
 #endif
