@@ -1,8 +1,14 @@
 # shipsnet
 
-## Checklist
+## Status
+| Name                 | Status | Comments                          |
+| :------------------- | :----- | :-------------------------------- |
+| Forward Propagation  | OK     | Same as python                    |
+| Backward Propagation | HS     | Since memory disposition modified |
+
+## Checklist memory
 On picture bateau3599.jpg with rescal_fl32.json and rescaling by hand  
-| Type                 | Status Python          | Status C                         | Remarque   |
+| Type                 | Status Python          | Status C                         | Comments   |
 | :------------------- | :--------------------- | :------------------------------- | :--------- |
 | Chargement image raw | image_raw              | OK                               | Same       |
 | Rescale Image        | image_rescaled_py.json | image_preprocessed_format_c.json | Same       |
