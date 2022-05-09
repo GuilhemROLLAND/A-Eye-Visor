@@ -10,14 +10,20 @@
 #include "json.h"
 
 #define USEDEBUGPARAM 1
-#define IMPORTARCHFROMJSON 0
-#define IMPORTPARAMFROMJSON 0
+#define IMPORTARCHFROMJSON 1
+#define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
+#define TESTONONE 0
+#define INFERENCEMODE 1
+#define SAVEVALUES 0
+#define DISPLAYTIME 0
+char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
 #define COLORS 3
 #define MAXLAYER 20
 
+int rows = 0;
 // LOADING DATA
 int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias);
 int loadTest(int ct, int sh, int rc, float imgScale, float imgBias);
@@ -27,8 +33,10 @@ void initArch(char *str, int x);
 // NEURAL-NET
 int isDigits(int init);
 void randomizeTrainSet();
+void randomizeValidSet();
 void dataAugment(int img, int r, float sc, float dx, float dy, int p, int hiRes, int loRes, int t);
 void *runBackProp(void *arg);
+void *runInference(void *arg);
 int backProp(int x, float *ent, int ep);
 int forwardProp(int x, int dp, int train, int lay);
 float ReLU(float x);
@@ -70,6 +78,7 @@ float prob1 = 0.0, prob2 = 0.0;
 float *layers[MAXLAYER] = {0};
 int *dropOut[MAXLAYER] = {0};
 float *weights[MAXLAYER] = {0};
+char *weightsStr;
 float *errors[MAXLAYER] = {0};
 // NETWORK ARCHITECTURE
 int numLayers = 0;
@@ -88,7 +97,7 @@ pthread_t workerThread;
 pthread_attr_t stackSizeAttribute;
 int pass[5] = {0};
 int working = 0;
-int requiredStackSize = MAXLAYER-2 * 1024 * 1024;
+int requiredStackSize = MAXLAYER - 2 * 1024 * 1024;
 // CONFUSION MATRIX DATA
 int maxCD = 54;
 int cDigits[MAXLAYER][MAXLAYER][54];
@@ -111,16 +120,16 @@ double *red4 = 0, *green4 = 0, *blue4 = 0;
 int requestInit = 0;
 // NET ARCHITECTURE
 char nets[9][MAXLAYER][20] =
-    {{"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "", "", "", ""},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "2", "20", "20", "6"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "150528", "C5:6", "P2", "C5:16", "P2", "128", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "150528", "C3:32", "P2", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "150528", "10", "10", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
+    {{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "10", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "2"},
+     {"", "", "", "", "", "", "", "", "", "50176", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "C3:32:1", "P2", "32", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "10", "10", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "150528", "C3:32", "P2", "C3:32", "P2", "C3:32", "P2", "512", "2"},
      // debug nets below
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "150528", "C5:6", "P2", "50", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "", "", "37632", "100", "2"},
-     {"", "", "", "", "", "", "", "", "", "","", "", "", "", "", "16", "C3:2", "P2", "2", "2"}};
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "150528", "C5:6", "P2", "50", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "37632", "100", "2"},
+     {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "16", "C3:2", "P2", "2", "2"}};
 
 pthread_barrier_t barrier;
 pthread_barrierattr_t attr;
@@ -181,21 +190,26 @@ int main(int argc, char *argv[])
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
     /**********************************************************************/
-    int rows = 0, removeHeader = 1, removeCol1 = 0;
-    double validRatio = 0.2, divideBy = 255, subtractBy = 0;
+    int removeHeader = 0, removeCol1 = 0;
+    double validRatio = .2, divideBy = 127.5, subtractBy = 1;
+    if (TESTONONE)
+    {
+        validRatio = 1.;
+    }
     if (LOADDATASET)
     {
+        printf("Load train Set with validRatio = %f\n", validRatio);
         int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
         printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-        int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-        printf("Loaded %d rows test, %d features\n", test, testColumns);
+        // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+        // printf("Loaded %d rows test, %d features\n", test, testColumns);
     }
 
     /**********************************************************************/
     /*      INIT NET                                                      */
     /**********************************************************************/
     weightScale = 1.414;
-    int net = 3;
+    int net = 2;
     printf("Initialized NN=%d with Xavier init scaled=%.3f\n", net, weightScale);
     initNet(net);
     int len = printf("Architecture (%s", layerNames[0]);
@@ -308,28 +322,30 @@ int main(int argc, char *argv[])
     }
     printf("Display rate set to %d\n", displayRate);
 
-    // training
-    pass[0] = epoch;
-    pass[1] = displayRate;
-    pass[2] = 0;
-    working = 1;
     printf("Running \n");
-    runBackProp(NULL);
+    if (INFERENCEMODE)
+    {
+        runInference(NULL);
+    }
+    else
+    {
+        // training
+        pass[0] = epoch;
+        pass[1] = displayRate;
+        pass[2] = 0;
+        working = 1;
+        runBackProp(NULL);
+    }
+
     // pthread_create(&workerThread, &stackSizeAttribute, runBackProp, NULL);
     // ret = pthread_join(workerThread, NULL);
+    // pthread_cancel(workerThread);
 
     /**********************************************************************/
     /*      PREDICT                                                       */
     /**********************************************************************/
 
-    int NN = 1;
-    int big = 1;
-    int k = 5;
-    int d = 2;
-    int dispRate = 100;
-    // pthread_cancel(workerThread);
-
-    printf("END OF RUN\n");
+    printf("END OF MAIN\n");
 }
 
 /**********************************************************************/
@@ -346,6 +362,11 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     // READ IN TRAIN.CSV
     char buffer[1000000];
     char name[80] = "shipsnet_train.csv";
+    if (TESTONONE)
+    {
+        strcpy(name, "shipsnet_one_V2.csv");
+    }
+    printf("Loading %s\n", name);
     if (access(name, F_OK) == 0)
     {
         data = (char *)malloc((unsigned long)fsize(name) + 1);
@@ -420,12 +441,12 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
         }
         else if (mark == 0)
         {
-            trainImages[k][c] = d / imgScale - imgBias;
+            trainImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             c++;
         }
         if (mark >= 1)
         {
-            trainImages[k][c] = d / imgScale - imgBias;
+            trainImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             if (c >= trainColumns - 1)
                 k++;
             c = 0;
@@ -562,12 +583,12 @@ int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
         }
         else if (mark == 0)
         {
-            testImages[k][c] = d / imgScale - imgBias;
+            testImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             c++;
         }
         if (mark >= 1)
         {
-            testImages[k][c] = d / imgScale - imgBias;
+            testImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             if (c >= testColumns - 1)
                 k++;
             c = 0;
@@ -624,10 +645,17 @@ void initArch(char *str, int x)
     {
         layerSizes[x] = atoi(str);
         layerConv[x] = 0;
-        layerChan[x] = 1;
+        if (x == 0 || layerSizes[x - 1] == 0)
+        {
+            layerChan[x] = COLORS;
+        }
+        else
+        {
+            layerChan[x] = 1;
+        }
         layerPad[x] = 0;
-        layerWidth[x] = (int)sqrt(layerSizes[x] / 3);
-        if (layerWidth[x] * layerWidth[x] != layerSizes[x] / 3)
+        layerWidth[x] = (int)sqrt(layerSizes[x]);
+        if (layerWidth[x] * layerWidth[x] != layerSizes[x])
             layerWidth[x] = 1;
         layerStride[x] = 1;
         layerConvStep[x] = 0;
@@ -752,7 +780,6 @@ void initNet(int t)
 
     if (IMPORTARCHFROMJSON)
     {
-        char filename[] = "example_file.json";
         char *buff2 = (char *)malloc((unsigned long)fsize(filename) + 1);
         ret = read_from_file(filename, buff2);
 
@@ -760,15 +787,14 @@ void initNet(int t)
 
         char *tab = get_tab_in_json(buff2, "arch");
 
-        char archCNN[size][20];
-        for (int i = 0; i < size; i++)
+        char archCNN[MAXLAYER][20] = {{0}};
+        for (int i = MAXLAYER - size; i < MAXLAYER; i++)
         {
-            memcpy(archCNN[i], "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 20);
-            char *str_in_tab = get_str_in_tab(tab, i);
+            char *str_in_tab = get_str_in_tab(tab, i - (MAXLAYER - size));
             strcpy(archCNN[i], str_in_tab);
             free(str_in_tab);
         }
-        for (i = 0; i < MAXLAYER; i++)
+        for (int i = MAXLAYER - size; i < MAXLAYER; i++)
         {
             initArch(archCNN[i], i);
             sprintf(buf, "L%d", i);
@@ -786,9 +812,9 @@ void initNet(int t)
                 numLayers = MAXLAYER - i;
         }
     }
-    sprintf(buf, "L%d", i);
-    if (numLayers == 0 && layerSizes[i] != 0)
-        numLayers = MAXLAYER - i;
+    // sprintf(buf, "L%d", i);
+    // if (numLayers == 0 && layerSizes[i] != 0)
+    //     numLayers = MAXLAYER - i;
     // printf("\n");
 
     // ALOCATE MEMORY
@@ -803,65 +829,150 @@ void initNet(int t)
             // printf("setting dropOut i=%d to %d\n",i,(layerSizes[i] * layerChan[i] + 1));
             errors[i] = (float *)malloc((layerSizes[i] * layerChan[i] + 1) * sizeof(float));
             if (layerType[i] == 0) // FULLY CONNECTED
-                weights[i] = (float *)malloc(layerSizes[i] * (layerSizes[i - 1] * layerChan[i - 1] + 1) * sizeof(float));
+            {
+                int nbrParam = layerSizes[i] * (layerSizes[i - 1] * layerChan[i - 1] + 1);
+                weights[i] = (float *)malloc(nbrParam * sizeof(float));
+            }
             else if (layerType[i] == 1) // CONVOLUTION
-                weights[i] = (float *)malloc((layerConvStep[i] + 1) * layerChan[i] * sizeof(float));
+            {
+                int nbrParam = (layerConvStep[i] + 1) * layerChan[i];
+                weights[i] = (float *)malloc(nbrParam * sizeof(float));
+            }
             else if (layerType[i] >= 2) // POOLING (2=max, 3=avg)
                 weights[i] = (float *)malloc(sizeof(float));
         }
     }
-    // RANDOMIZE WEIGHTS AND BIAS
+    // WEIGHTS AND BIAS
     float scale;
     for (i = 0; i < MAXLAYER; i++)
         layers[i][layerSizes[i] * layerChan[i]] = 1.0;
+    if (IMPORTPARAMFROMJSON)
+    {
+        char *bufFile = (char *)malloc((unsigned long)fsize(filename) + 1);
+        int ret = read_from_file(filename, bufFile);
+        printf("Size of parameters' file : %d\n", ret);
+        weightsStr = get_object_in_json(bufFile, "weights");
+        free(bufFile);
+        if (weightsStr == NULL)
+        {
+            printf("[ERROR] No weights load from file\n");
+            return;
+        }
+    }
+
+    int idxLayerInFile = 0;
     for (idxLayer = 1; idxLayer < MAXLAYER; idxLayer++)
     {
-        scale = 1.0;
-        if (layerSizes[idxLayer - 1] != 0)
+        if (IMPORTPARAMFROMJSON && ((layerType[idxLayer] == 0) || (layerType[idxLayer] == 1)))
         {
-            // XAVIER INITIALIZATION (= SQRT( 6/(N_in + N_out) ) ) What is N_out to MaxPool ??
-            if (layerType[idxLayer] == 0)
-            { // FC LAYER
-                if (layerType[idxLayer + 1] == 0)
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer]));
-                else if (layerType[idxLayer + 1] == 1) // impossible
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerConvStep[idxLayer + 1]));
-                else if (layerType[idxLayer + 1] >= 2) // impossible
-                    scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]));
+            if (idxLayer >= MAXLAYER - numLayers + 1)
+            {
+                char label[30] = {0};
+                sprintf(label, "layer%i", idxLayerInFile);
+                char *layerWeights = get_tab_in_json(weightsStr, label);
+                idxLayerInFile++;
+                sprintf(label, "layer%i", idxLayerInFile);
+                char *layerBias = get_tab_in_json(weightsStr, label);
+                idxLayerInFile++;
+                if (layerType[idxLayer] == 0)
+                { // FULLY CONNECTED
+                    for (int idxInput = 0; idxInput < layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]; idxInput++)
+                    {
+                        char *Node = get_tab_in_tab(layerWeights, idxInput);
+                        for (int iNeuron = 0; iNeuron < layerSizes[idxLayer]; iNeuron++)
+                        {
+                            float param = get_float_in_string(Node, iNeuron);
+                            int idx = idxInput * layerSizes[idxLayer] + iNeuron;
+                            weights[idxLayer][idx] = param;
+                        }
+                        free(Node);
+                    }
+                    for (i = 0; i < layerSizes[idxLayer]; i++) // set biases
+                    {
+                        int idx = layerSizes[idxLayer] * layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + i;
+                        weights[idxLayer][idx] = get_float_in_string(layerBias, i);
+                    }
+                }
+                else if (layerType[idxLayer] == 1)
+                {                                                                    // CONVOLUTION                                                               // CONVOLUTION
+                    for (int iParam = 0; iParam < layerConvStep[idxLayer]; iParam++) // +1 ??
+                    {
+                        int profondeur = iParam % (layerChan[idxLayer - 1]);
+                        int largeur = (iParam / layerChan[idxLayer - 1]) % layerConv[idxLayer];
+                        int hauteur = (iParam / layerChan[idxLayer - 1]) / layerConv[idxLayer];
+                        char *paramHauteur = get_tab_in_tab(layerWeights, hauteur);
+                        char *paramLargeur = get_tab_in_tab(paramHauteur, largeur);
+                        char *paramProf = get_tab_in_tab(paramLargeur, profondeur);
+                        free(paramHauteur);
+                        free(paramLargeur);
+                        for (int iFilter = 0; iFilter < layerChan[idxLayer]; iFilter++)
+                        {
+                            float param = get_float_in_string(paramProf, iFilter);
+                            weights[idxLayer][iParam * layerChan[idxLayer] + iFilter] = param;
+                        }
+                        free(paramProf);
+                    }
+                    for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases
+                        weights[idxLayer][layerConvStep[idxLayer] * layerChan[idxLayer] + i] = get_float_in_string(layerBias, i);
+                }
+                if (SAVEVALUES)
+                {
+                    char nameFile[30];
+                    sprintf(nameFile, "sauve/weights%d_c.json", idxLayer);
+                    int nbrParam = 0;
+                    if (layerType[idxLayer] == 0) // FULLY CONNECTED
+                    {
+                        nbrParam = layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1);
+                    }
+                    else if (layerType[idxLayer] == 1) // CONVOLUTION
+                    {
+                        nbrParam = (layerConvStep[idxLayer] + 1) * layerChan[idxLayer];
+                    }
+                    write_float_in_file(nameFile, weights[idxLayer], nbrParam);
+                }
+                free(layerWeights);
+                free(layerBias);
             }
-            else if (layerType[idxLayer] == 1)
-            { // CONV LAYER
-                if (layerType[idxLayer + 1] == 0)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerSizes[idxLayer] * layerChan[idxLayer]));
-                else if (layerType[idxLayer + 1] == 1)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer + 1]));
-                else if (layerType[idxLayer + 1] >= 2)
-                    scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer]));
-            }
-            // if (activation==1 && j!=9) scale *= sqrt(2.0); // DO I WANT THIS? INPUT ISN'T MEAN=0
-            // printf("Init layer %d: LS=%d LC=%d LCS=%d Scale=%f\n",j,layerSizes[j],layerChan[j],layerConvStep[j],scale);
-            if (idxLayer != MAXLAYER-1)
-                scale *= weightScale;
         }
-        if (layerType[idxLayer] == 0)
-        { // FULLY CONNECTED
-            if (IMPORTPARAMFROMJSON){
-                return ; // TODO
+        else
+        {
+            scale = 1.0;
+            if (layerSizes[idxLayer - 1] != 0)
+            {
+                // XAVIER INITIALIZATION (= SQRT( 6/(N_in + N_out) ) ) What is N_out to MaxPool ??
+                if (layerType[idxLayer] == 0)
+                { // FC LAYER
+                    if (layerType[idxLayer + 1] == 0)
+                        scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer]));
+                    else if (layerType[idxLayer + 1] == 1) // impossible
+                        scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerConvStep[idxLayer + 1]));
+                    else if (layerType[idxLayer + 1] >= 2) // impossible
+                        scale = 2.0 * sqrt(6.0 / (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]));
+                }
+                else if (layerType[idxLayer] == 1)
+                { // CONV LAYER
+                    if (layerType[idxLayer + 1] == 0)
+                        scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerSizes[idxLayer] * layerChan[idxLayer]));
+                    else if (layerType[idxLayer + 1] == 1)
+                        scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer + 1]));
+                    else if (layerType[idxLayer + 1] >= 2)
+                        scale = 2.0 * sqrt(6.0 / (layerConvStep[idxLayer] + layerConvStep[idxLayer]));
+                }
+                // if (activation==1 && j!=9) scale *= sqrt(2.0); // DO I WANT THIS? INPUT ISN'T MEAN=0
+                // printf("Init layer %d: LS=%d LC=%d LCS=%d Scale=%f\n",j,layerSizes[j],layerChan[j],layerConvStep[j],scale);
+                if (idxLayer != MAXLAYER - 1)
+                    scale *= weightScale;
             }
-            else {
+            if (layerType[idxLayer] == 0)
+            { // FULLY CONNECTED
                 for (i = 0; i < layerSizes[idxLayer] * (layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1); i++)
                     weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
                 // weights[j][i] = 0.1;
                 for (i = 0; i < layerSizes[idxLayer]; i++) // set biases to zero
                     weights[idxLayer][(layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] + 1) * (i + 1) - 1] = 0.0;
             }
-        }
-        else if (layerType[idxLayer] == 1)
-        { // CONVOLUTION
-            if(IMPORTPARAMFROMJSON){
-                return ; // TODO
-            }
-            else{
+            else if (layerType[idxLayer] == 1)
+            { // CONVOLUTION
                 for (i = 0; i < (layerConvStep[idxLayer] + 1) * layerChan[idxLayer]; i++)
                     weights[idxLayer][i] = scale * ((float)rand() / (float)RAND_MAX - 0.5);
                 for (i = 0; i < layerChan[idxLayer]; i++) // set conv biases to zero
@@ -884,7 +995,7 @@ int isDigits(int init)
 {
     // DETERMINES WHETHER TO TRAIN DOTS OR LOADED DATA
     int in = MAXLAYER - numLayers;
-    if (layerSizes[in] == 196 || layerSizes[in] == 784 || layerSizes[in] == trainColumns)
+    if (layerSizes[in] == WIDTH * WIDTH || layerSizes[in] == 784 || layerSizes[in] == trainColumns)
         return 1;
     else
         return 0;
@@ -903,6 +1014,18 @@ void randomizeTrainSet()
         temp = trainSet[i];
         trainSet[i] = trainSet[x];
         trainSet[x] = temp;
+    }
+}
+void randomizeValidSet()
+{
+    // RANDOMIZES INDICES IN TRAINING SET
+    int i, temp, x;
+    for (i = 0; i < validSetSize; i++)
+    {
+        x = (int)(validSetSize * ((float)rand() / (float)RAND_MAX) - 1);
+        temp = validSet[i];
+        validSet[i] = validSet[x];
+        validSet[x] = temp;
     }
 }
 
@@ -1053,7 +1176,10 @@ void *runBackProp(void *arg)
                 printf("learning stopped early\n");
                 pthread_exit(NULL);
             }
+            printf("Ratio : %.2f\r", (float)sumBp / ((float)idxImage + 1.));
+            fflush(stdout);
         }
+        printf("\n");
         entropy = entropy / trainSize;
         s2 = 0;
         entropy2 = 0.0;
@@ -1080,7 +1206,7 @@ void *runBackProp(void *arg)
                 s2++;
             cDigits[trainDigits[validSet[idxImage]]][p][confusion[trainDigits[validSet[idxImage]]][p] % maxCD] = validSet[idxImage];
             confusion[trainDigits[validSet[idxImage]]][p]++;
-            if (layers[MAXLAYER-1][p] == 0)
+            if (layers[MAXLAYER - 1][p] == 0)
             {
                 if (z == 1)
                     printf("Test vanished.\n");
@@ -1089,7 +1215,7 @@ void *runBackProp(void *arg)
                 working = 0;
                 return NULL;
             }
-            entropy2 -= log(layers[MAXLAYER-1][p]);
+            entropy2 -= log(layers[MAXLAYER - 1][p]);
             if (working == 0)
             {
                 printf("learning stopped early\n");
@@ -1138,13 +1264,58 @@ void *runBackProp(void *arg)
     return NULL;
 }
 
+void *runInference(void *arg)
+{
+    randomizeValidSet();
+    working = 1;
+    int s2 = 0;
+    int entropy2 = 0;
+    int confusion[MAXLAYER][MAXLAYER] = {{0}};
+    int entSize = 0, accSize = 0, ent2Size = 0, acc2Size = 0;
+
+    for (int idxImage = 0; idxImage < validSetSize; idxImage++)
+    {
+        clock_t start, stop;
+        start = clock();
+        int pred = forwardProp(validSet[idxImage], 0, 1, 0);
+        stop = clock();
+        if (pred == -1)
+        {
+            printf("Test exploded.\n");
+            working = 0;
+            return NULL;
+        }
+        if (pred == trainDigits[validSet[idxImage]])
+            s2++;
+        cDigits[trainDigits[validSet[idxImage]]][pred][confusion[trainDigits[validSet[idxImage]]][pred] % maxCD] = validSet[idxImage];
+        confusion[trainDigits[validSet[idxImage]]][pred]++;
+        if (layers[MAXLAYER - 1][pred] == 0)
+        {
+            printf("Test vanished.\n");
+            working = 0;
+            return NULL;
+        }
+        entropy2 -= log(layers[MAXLAYER - 1][pred]);
+        if (working == 0)
+        {
+            printf("learning stopped early\n");
+            pthread_exit(NULL);
+        }
+        printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
+        fflush(stdout);
+    }
+    printf("\n");
+    entropy2 = entropy2 / validSetSize;
+    printf("valid=%.2f \n", 100.0 * s2 / validSetSize);
+}
+
 /**********************************************************************/
 /*      NEURAL NETWORK                                                */
 /**********************************************************************/
 int backProp(int x, float *ent, int ep)
 {
     // BACK PROPAGATION WITH 1 TRAINING IMAGE
-    int i = 0, j, k, r = 0, d = 0, rot = 0, hres = 0, lres = 1;
+    int i = 0, j, k, concordance = 0, d = 0, rot = 0, hres = 0, lres = 1;
     float der = 1.0, xs = 0.0, ys = 0.0, extra = 0.0, sc = 1.0, sum;
     int dc, a, a2, i2, j2, i3, j3, pmax, imax, jmax;
     int temp, temp2;
@@ -1169,151 +1340,158 @@ int backProp(int x, float *ent, int ep)
             x = trainSizeE;
         }
     // FORWARD PROP FIRST
-    int p = forwardProp(x, 1, 1, 0);
-    if (p == -1)
+    int pred = forwardProp(x, 1, 1, 0);
+    if (pred == -1)
         return -1; // GRADIENT EXPLODED
     // CORRECT PREDICTION?
-    int y;
+    int goodValue;
     if (isDigits(inited) == 1)
-        y = trainDigits[x];
+        goodValue = trainDigits[x];
     else
-        y = trainColors[x];
-    if (p == y)
-        r = 1;
+        goodValue = trainColors[x];
+    if (pred == goodValue)
+        concordance = 1;
     // OUTPUT LAYER - CALCULATE ERRORS
-    for (i = 0; i < layerSizes[MAXLAYER-1]; i++)
+    for (int iNeuron = 0; iNeuron < layerSizes[MAXLAYER - 1]; iNeuron++)
     {
-        errors[MAXLAYER-1][i] = learn * (0 - layers[MAXLAYER-1][i]) * pow(decay, ep);
-        if (i == y)
+        errors[MAXLAYER - 1][iNeuron] = learn * (0 - layers[MAXLAYER - 1][iNeuron]) * pow(decay, ep);
+        if (iNeuron == goodValue)
         {
-            errors[MAXLAYER-1][i] = learn * (1 - layers[MAXLAYER-1][i]) * pow(decay, ep);
-            if (layers[MAXLAYER-1][i] == 0)
+            errors[MAXLAYER - 1][iNeuron] = learn * (1 - layers[MAXLAYER - 1][iNeuron]) * pow(decay, ep);
+            if (layers[MAXLAYER - 1][iNeuron] == 0)
                 return -1; // GRADIENT VANISHED
-            *ent = -log(layers[MAXLAYER-1][i]);
+            *ent = -log(layers[MAXLAYER - 1][iNeuron]);
         }
     }
     // HIDDEN LAYERS - CALCULATE ERRORS
-    for (k = MAXLAYER - 2; k > MAXLAYER - numLayers; k--)
+    for (int idxLayer = MAXLAYER - 2; idxLayer > MAXLAYER - numLayers; idxLayer--)
     {
-        if (layerType[k + 1] == 0) // FEEDS INTO FULLY CONNECTED
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
+        if (layerType[idxLayer + 1] == 0)
+        { // FEEDS INTO FULLY CONNECTED
+            for (int idxParam = 0; idxParam < layerSizes[idxLayer] * layerChan[idxLayer]; idxParam++)
             {
-                errors[k][i] = 0.0;
-                if (dropOutRatio == 0.0 || DOdense == 0 || dropOut[k][i] == 1)
+                errors[idxLayer][idxParam] = 0.0;
+                if (dropOutRatio == 0.0 || DOdense == 0 || dropOut[idxLayer][idxParam] == 1)
                 { // dropout
                     if (activation == 2)
-                        der = (layers[k][i] + 1) * (1 - layers[k][i]); // TanH derivative
-                    if (activation == 0 || activation == 2 || layers[k][i] > 0)
+                        der = (layers[idxLayer][idxParam] + 1) * (1 - layers[idxLayer][idxParam]); // TanH derivative
+                    if (activation == 0 || activation == 2 || layers[idxLayer][idxParam] > 0)
                     { // this is ReLU derivative
-                        temp = layerSizes[k] * layerChan[k] + 1;
-                        for (j = 0; j < layerSizes[k + 1]; j++)
-                            errors[k][i] += errors[k + 1][j] * weights[k + 1][j * temp + i] * der;
+                        int step = layerSizes[idxLayer + 1];
+                        for (int idxIn = 0; idxIn < layerSizes[idxLayer + 1]; idxIn++)
+                            errors[idxLayer][idxParam] += errors[idxLayer + 1][idxIn] * weights[idxLayer + 1][idxParam * step + idxIn] * der;
                     }
                 }
             }
-        else if (layerType[k + 1] == 1)
+        }
+        else if (layerType[idxLayer + 1] == 1)
         { // FEEDS INTO CONVOLUTION
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                errors[k][i] = 0.0;
+            for (int iParam = 0; iParam < layerSizes[idxLayer] * layerChan[idxLayer]; iParam++)
+                errors[idxLayer][iParam] = 0.0;
             dc = 0;
-            if (layerPad[k + 1] == 1)
-                dc = layerConv[k + 1] / 2;
-            for (a = 0; a < layerChan[k + 1]; a++)
-                for (i = 0; i < layerWidth[k + 1]; i++)
-                    for (j = 0; j < layerWidth[k + 1]; j++)
+            if (layerPad[idxLayer + 1] == 1)
+                dc = layerConv[idxLayer + 1] / 2;
+            for (int iProfOut = 0; iProfOut < layerChan[idxLayer]; iProfOut++)
+                for (int iLargOut = 0; iLargOut < layerConv[idxLayer + 1]; iLargOut++)
+                    for (int iHautOut = 0; iHautOut < layerConv[idxLayer + 1]; iHautOut++)
                     {
-                        temp = a * (layerConvStep[k + 1] + 1);
-                        temp2 = a * layerSizes[k + 1] + i * layerWidth[k + 1] + j;
-                        for (a2 = 0; a2 < layerChan[k]; a2++)
-                            for (i2 = 0; i2 < layerConv[k + 1]; i2++)
-                                for (j2 = 0; j2 < layerConv[k + 1]; j2++)
+                        for (int iProfIn = 0; iProfIn < layerChan[idxLayer + 1]; iProfIn++)
+                            for (int iLargIn = 0; iLargIn < layerWidth[idxLayer + 1]; iLargIn++)
+                                for (int iHautIn = 0; iHautIn < layerWidth[idxLayer + 1]; iHautIn++)
                                 {
-                                    i3 = i + i2 - dc;
-                                    j3 = j + j2 - dc;
+                                    int i3 = iLargIn + iLargOut - dc;
+                                    int j3 = iHautIn + iHautOut - dc;
                                     if (activation == 2)
-                                        der = (layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] + 1) * (1 - layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3]); // TanH
-                                    if (activation == 0 || activation == 2 || layers[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] > 0)                                   // this is ReLU derivative
-                                        if (i3 >= 0 && i3 < layerWidth[k] && j3 >= 0 && j3 < layerWidth[k])                                                                  // padding
-                                            errors[k][a2 * layerSizes[k] + i3 * layerWidth[k] + j3] +=
-                                                weights[k + 1][temp + a2 * layerConvStep2[k + 1] + i2 * layerConv[k + 1] + j2] * errors[k + 1][temp2] * der;
+                                        der = (layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3] + 1) * (1 - layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3]); // TanH
+                                    if (activation == 0 || activation == 2 || layers[idxLayer][iProfOut * layerSizes[idxLayer] + i3 * layerWidth[idxLayer] + j3] > 0)                                                              // this is ReLU derivative
+                                        if (i3 >= 0 && i3 < layerWidth[idxLayer] && j3 >= 0 && j3 < layerWidth[idxLayer])                                                                                                          // padding
+                                        {
+                                            int idxErrorsOut = j3 * layerWidth[idxLayer] * layerChan[idxLayer] + i3 * layerChan[idxLayer] + iProfOut;
+                                            int idxWeights = iProfOut * layerWidth[idxLayer + 1] * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iHautIn * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iLargIn * layerChan[idxLayer + 1] + iProfIn;
+                                            int idxErrorsIn = iHautIn * layerWidth[idxLayer + 1] * layerChan[idxLayer + 1] + iLargIn * layerChan[idxLayer + 1] + iProfIn;
+                                            errors[idxLayer][idxErrorsOut] += weights[idxLayer + 1][idxWeights] * errors[idxLayer + 1][idxErrorsIn] * der;
+                                        }
                                 }
                     }
             if (dropOutRatio > 0.0 && DOconv == 1) // dropout
-                for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                    errors[k][i] = errors[k][i] * dropOut[k][i];
+                for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                    errors[idxLayer][i] = errors[idxLayer][i] * dropOut[idxLayer][i];
         }
-        else if (layerType[k + 1] >= 2)
+        else if (layerType[idxLayer + 1] >= 2)
         { // FEEDS INTO POOLING (2=max, 3=avg)
-            for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                errors[k][i] = 0.0;
-            for (a = 0; a < layerChan[k]; a++)
-                for (i = 0; i < layerWidth[k + 1]; i++)
-                    for (j = 0; j < layerWidth[k + 1]; j++)
+            for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                errors[idxLayer][i] = 0.0;
+            for (a = 0; a < layerChan[idxLayer]; a++)
+                for (i = 0; i < layerWidth[idxLayer + 1]; i++)
+                    for (j = 0; j < layerWidth[idxLayer + 1]; j++)
                     {
                         pmax = -1e6;
-                        if (layerType[k + 1] == 3)
-                            temp = errors[k + 1][a * layerSizes[k + 1] + i * layerWidth[k + 1] + j] / layerConvStep2[k + 1];
-                        for (i2 = 0; i2 < layerConv[k + 1]; i2++)
-                            for (j2 = 0; j2 < layerConv[k + 1]; j2++)
+                        if (layerType[idxLayer + 1] == 3)
+                            temp = errors[idxLayer + 1][a * layerSizes[idxLayer + 1] + i * layerWidth[idxLayer + 1] + j] / layerConvStep2[idxLayer + 1];
+                        for (i2 = 0; i2 < layerConv[idxLayer + 1]; i2++)
+                            for (j2 = 0; j2 < layerConv[idxLayer + 1]; j2++)
                             {
-                                if (layerType[k + 1] == 3)
-                                    errors[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2] = temp;
-                                else if (layers[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2] > pmax)
+                                if (layerType[idxLayer + 1] == 3)
+                                    errors[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2] = temp;
+                                else if (layers[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2] > pmax)
                                 {
-                                    pmax = layers[k][a * layerSizes[k] + (i * layerStride[k + 1] + i2) * layerWidth[k] + j * layerStride[k + 1] + j2];
+                                    pmax = layers[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + i2) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + j2];
                                     imax = i2;
                                     jmax = j2;
                                 }
                             }
-                        if (layerType[k + 1] == 2)
-                            errors[k][a * layerSizes[k] + (i * layerStride[k + 1] + imax) * layerWidth[k] + j * layerStride[k + 1] + jmax] =
-                                errors[k + 1][a * layerSizes[k + 1] + i * layerWidth[k + 1] + j];
+                        if (layerType[idxLayer + 1] == 2)
+                            errors[idxLayer][a * layerSizes[idxLayer] + (i * layerStride[idxLayer + 1] + imax) * layerWidth[idxLayer] + j * layerStride[idxLayer + 1] + jmax] =
+                                errors[idxLayer + 1][a * layerSizes[idxLayer + 1] + i * layerWidth[idxLayer + 1] + j];
                     }
             if (dropOutRatio > 0.0 && DOpool == 1) // dropout
-                for (i = 0; i < layerSizes[k] * layerChan[k]; i++)
-                    errors[k][i] = errors[k][i] * dropOut[k][i];
+                for (i = 0; i < layerSizes[idxLayer] * layerChan[idxLayer]; i++)
+                    errors[idxLayer][i] = errors[idxLayer][i] * dropOut[idxLayer][i];
         }
     }
 
     // UPDATE WEIGHTS - GRADIENT DESCENT
     int count = 0;
-    for (k = MAXLAYER + 1 - numLayers; k < MAXLAYER; k++)
+    for (int idxLayer = MAXLAYER + 1 - numLayers; idxLayer < MAXLAYER; idxLayer++)
     {
-        if (layerType[k] == 0)
+        if (layerType[idxLayer] == 0)
         { // FULLY CONNECTED LAYER
-            for (i = 0; i < layerSizes[k]; i++)
+            for (int iOut = 0; iOut < layerSizes[idxLayer]; iOut++)
             {
-                temp = i * (layerSizes[k - 1] * layerChan[k - 1] + 1);
-                for (j = 0; j < layerSizes[k - 1] * layerChan[k - 1] + 1; j++)
-                    weights[k][temp + j] += errors[k][i] * layers[k - 1][j];
+                for (int iIn = 0; iIn < layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]; iIn++)
+                    weights[idxLayer][iIn * layerSizes[idxLayer] + iOut] += errors[idxLayer][iOut] * layers[idxLayer - 1][iIn];
             }
         }
-        else if (layerType[k] == 1)
+        else if (layerType[idxLayer] == 1)
         { // CONVOLUTION LAYER
             dc = 0;
-            if (layerPad[k] == 1)
-                dc = layerConv[k] / 2;
-            for (a = 0; a < layerChan[k]; a++)
-                for (i = 0; i < layerWidth[k]; i++)
-                    for (j = 0; j < layerWidth[k]; j++)
+            if (layerPad[idxLayer] == 1)
+                dc = layerConv[idxLayer] / 2;
+            for (int iHautOut = 0; iHautOut < layerWidth[idxLayer]; iHautOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[idxLayer]; iLargOut++)
+                    for (int iProfOut = 0; iProfOut < layerChan[idxLayer]; iProfOut++)
                     {
-                        temp = a * (layerConvStep[k] + 1);
-                        temp2 = a * layerSizes[k] + i * layerWidth[k] + j;
-                        for (a2 = 0; a2 < layerChan[k - 1]; a2++)
-                            for (i2 = 0; i2 < layerConv[k]; i2++)
-                                for (j2 = 0; j2 < layerConv[k]; j2++)
+                        int idxErrors = iHautOut * layerWidth[idxLayer] * layerChan[idxLayer] + iLargOut * layerChan[idxLayer] + iProfOut;
+                        for (int iHautIn = 0; iHautIn < layerConv[idxLayer]; iHautIn++)
+                            for (int iLargIn = 0; iLargIn < layerConv[idxLayer]; iLargIn++)
+                                for (int iProfIn = 0; iProfIn < layerChan[idxLayer - 1]; iProfIn++)
                                 {
-                                    i3 = i + i2 - dc;
-                                    j3 = j + j2 - dc;
-                                    if (i3 >= 0 && i3 < layerWidth[k - 1] && j3 >= 0 && j3 < layerWidth[k - 1])
-                                        weights[k][temp + a2 * layerConvStep2[k] + i2 * layerConv[k] + j2] +=
-                                            errors[k][temp2] * layers[k - 1][a2 * layerSizes[k - 1] + i3 * layerWidth[k - 1] + j3];
+                                    int i3 = iLargOut + iLargIn - dc;
+                                    int j3 = iHautOut + iHautIn - dc;
+                                    int idxWeights = iProfOut * layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer - 1] + iHautIn * layerConv[idxLayer] * layerChan[idxLayer - 1] + iLargIn * layerChan[idxLayer - 1] + iProfIn;
+                                    int idxVal = j3 * layerConv[idxLayer] * layerChan[idxLayer - 1] + i3 * layerChan[idxLayer - 1] + iProfIn;
+                                    if (i3 >= 0 && i3 < layerWidth[idxLayer - 1] && j3 >= 0 && j3 < layerWidth[idxLayer - 1])
+                                    {
+                                        weights[idxLayer][idxWeights] += errors[idxLayer][idxErrors] * layers[idxLayer - 1][idxVal];
+                                    }
                                 }
-                        weights[k][(a + 1) * (layerConvStep[k] + 1) - 1] += errors[k][a * layerSizes[k] + i * layerWidth[k] + j];
+                        // bias
+                        int idxWeights = (layerConv[idxLayer] * layerConv[idxLayer] * layerChan[idxLayer - 1] * layerChan[idxLayer]) + iProfOut;
+                        weights[idxLayer][idxWeights] += errors[idxLayer][idxErrors];
                     }
         }
     }
-    return r;
+    return concordance;
 }
 
 /**********************************************************************/
@@ -1322,37 +1500,41 @@ int backProp(int x, float *ent, int ep)
 int forwardProp(int image, int dp, int train, int lay)
 {
     // FORWARD PROPAGATION WITH 1 IMAGE
-    int idxNeuron, j, layer, imax, dc;
-    int a, a2, i2, j2, i3, j3;
+    int idx1, idx2, layer, imax, dc;
+    int idx3, idx4, idx5, idx6;
     float sum, esum, max, rnd, pmax;
     int temp, temp2;
     // INPUT LAYER
     if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH * COLORS / 2 / 2)
-    {
+    { // Small Subset
         if (train == 1)
-            for (idxNeuron = 0; idxNeuron < WIDTH * WIDTH * COLORS / 2 / 2; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = trainImages2[image][idxNeuron];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS / 2 / 2; idx++)
+                layers[MAXLAYER - numLayers][idx] = trainImages2[image][idx];
         else
-            for (idxNeuron = 0; idxNeuron < WIDTH * WIDTH * COLORS / 2 / 2; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = testImages2[image][idxNeuron];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS / 2 / 2; idx++)
+                layers[MAXLAYER - numLayers][idx] = testImages2[image][idx];
     }
-    else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH * COLORS)
-    {
+    else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == WIDTH * WIDTH)
+    { // Full pictures
         if (train == 1)
-            for (idxNeuron = 0; idxNeuron < WIDTH * WIDTH * COLORS; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = trainImages[image][idxNeuron];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS; idx++)
+                layers[MAXLAYER - numLayers][idx] = trainImages[image][idx];
         else
-            for (idxNeuron = 0; idxNeuron < WIDTH * WIDTH * COLORS; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = testImages[image][idxNeuron];
+            for (int idx = 0; idx < WIDTH * WIDTH * COLORS; idx++)
+                layers[MAXLAYER - numLayers][idx] = testImages[image][idx];
     }
     else if (isDigits(inited) == 1 && layerSizes[MAXLAYER - numLayers] == trainColumns)
-    {
+    { // Other
         if (train == 1)
-            for (idxNeuron = 0; idxNeuron < trainColumns; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = trainImages[image][idxNeuron];
+            for (idx1 = 0; idx1 < trainColumns; idx1++)
+                layers[MAXLAYER - numLayers][idx1] = trainImages[image][idx1];
         else
-            for (idxNeuron = 0; idxNeuron < trainColumns; idxNeuron++)
-                layers[MAXLAYER - numLayers][idxNeuron] = testImages[image][idxNeuron];
+            for (idx1 = 0; idx1 < trainColumns; idx1++)
+                layers[MAXLAYER - numLayers][idx1] = testImages[image][idx1];
+    }
+    if (SAVEVALUES)
+    {
+        write_float_in_file("sauve/image_preprocessed_c.json", layers[9], layerSizes[9] * layerChan[9]);
     }
 
     // HIDDEN LAYERS
@@ -1362,136 +1544,214 @@ int forwardProp(int image, int dp, int train, int lay)
             return -1;
         // CALCULATE DROPOUT
         // if (dropOutRatio>0.0) // ALWAYS SET TO 1 TO BE SAFE
-        for (idxNeuron = 0; idxNeuron < layerSizes[layer] * layerChan[layer]; idxNeuron++)
+        for (int idx = 0; idx < layerSizes[layer] * layerChan[layer]; idx++)
         {
-            dropOut[layer][idxNeuron] = 1;
+            dropOut[layer][idx] = 1;
             if (dropOutRatio > 0.0 && dp == 1)
             {
                 rnd = (float)rand() / (float)RAND_MAX;
                 if (rnd < dropOutRatio)
-                    dropOut[layer][idxNeuron] = 0;
+                    dropOut[layer][idx] = 0;
             }
         }
 
-        if (layerType[layer] == 0) // FULLY CONNECTED LAYER
-            for (idxNeuron = 0; idxNeuron < layerSizes[layer]; idxNeuron++)
+        if (layerType[layer] == 0)
+        { // FULLY CONNECTED LAYER
+            clock_t start, stop;
+            if (DISPLAYTIME)
             {
-                if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][idxNeuron] == 1)
+                start = clock();
+            }
+            for (int iOut = 0; iOut < layerSizes[layer]; iOut++)
+            {
+                if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][iOut] == 1)
                 {
-                    temp = idxNeuron * (layerSizes[layer - 1] * layerChan[layer - 1] + 1);
                     sum = 0.0;
-                    for (j = 0; j < layerSizes[layer - 1] * layerChan[layer - 1] + 1; j++)
-                        sum += layers[layer - 1][j] * weights[layer][temp + j];
+                    for (int iIn = 0; iIn < layerSizes[layer - 1] * layerChan[layer - 1]; iIn++)
+                    {
+                        int idxWeigth = iIn * layerSizes[layer] + iOut;
+                        sum += layers[layer - 1][iIn] * weights[layer][idxWeigth];
+                    }
+                    // Bias
+                    sum += weights[layer][layerSizes[layer - 1] * layerChan[layer - 1] * layerSizes[layer] + iOut];
                     if (activation == 0)
-                        layers[layer][idxNeuron] = sum;
+                        layers[layer][iOut] = sum;
                     else if (activation == 1)
-                        layers[layer][idxNeuron] = ReLU(sum);
+                        layers[layer][iOut] = ReLU(sum);
                     else
-                        layers[layer][idxNeuron] = TanH(sum);
+                        layers[layer][iOut] = TanH(sum);
                     // if (dropOutRatio>0.0 && dp==1) layers[layer][i] = layers[layer][i]  / (1-dropOutRatio);
                     if (dropOutRatio > 0.0 && dp == 0 && DOdense == 1)
-                        layers[layer][idxNeuron] = layers[layer][idxNeuron] * (1 - dropOutRatio);
+                        layers[layer][iOut] = layers[layer][iOut] * (1 - dropOutRatio);
                 }
                 else
-                    layers[layer][idxNeuron] = 0.0;
+                    layers[layer][iOut] = 0.0;
             }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process fully connected %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
+        }
         else if (layerType[layer] == 1)
         { // CONVOLUTION LAYER
+            clock_t start, stop;
+            if (DISPLAYTIME)
+            {
+                start = clock();
+            }
             dc = 0;
             if (layerPad[layer] == 1)
                 dc = layerConv[layer] / 2;
-            for (a = 0; a < layerChan[layer]; a++)
-                for (idxNeuron = 0; idxNeuron < layerWidth[layer]; idxNeuron++)
-                    for (j = 0; j < layerWidth[layer]; j++)
+            for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
+                    for (int iFilterOut = 0; iFilterOut < layerChan[layer]; iFilterOut++)
                     {
-                        temp = a * (layerConvStep[layer] + 1);
                         sum = 0.0;
-                        for (a2 = 0; a2 < layerChan[layer - 1]; a2++)
-                            for (i2 = 0; i2 < layerConv[layer]; i2++)
-                                for (j2 = 0; j2 < layerConv[layer]; j2++)
+                        for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
+                            for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                                for (int iProfIn = 0; iProfIn < layerChan[layer - 1]; iProfIn++)
                                 {
-                                    i3 = idxNeuron + i2 - dc;
-                                    j3 = j + j2 - dc;
+                                    int j3 = iLargOut + iLargIn - dc;
+                                    int i3 = iHautOut + iHautIn - dc;
+                                    int idxWeights = iFilterOut + iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer];
+                                    float weight = weights[layer][idxWeights];
                                     if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
-                                        sum += layers[layer - 1][a2 * layerSizes[layer - 1] + i3 * layerWidth[layer - 1] + j3] * weights[layer][temp + a2 * layerConvStep2[layer] + i2 * layerConv[layer] + j2];
+                                    {
+                                        float val = layers[layer - 1][i3 * layerWidth[layer - 1] * layerChan[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
+                                        // printf("val(%d;%d;%d) = %.16f\n", i3, j3, iProfIn, val);
+                                        // printf("weight(%d;%d;%d;%d) = %.16f\n", iFilterOut, iHautIn, iLargIn, iProfIn, weight);
+                                        sum += val * weight;
+                                    }
                                     else
-                                        sum -= imgBias * weights[layer][temp + a2 * layerConvStep2[layer] + i2 * layerConv[layer] + j2];
+                                    {
+                                        sum -= imgBias * weight;
+                                    }
                                 }
-                        sum += weights[layer][(a + 1) * (layerConvStep[layer] + 1) - 1];
+                        sum += weights[layer][layerConvStep[layer] * layerChan[layer] + iFilterOut];
+                        int idx = iHautOut * layerWidth[layer] * layerChan[layer] + iLargOut * layerChan[layer] + iFilterOut;
                         if (activation == 0)
-                            layers[layer][a * layerSizes[layer] + idxNeuron * layerWidth[layer] + j] = sum;
+                            sum = sum;
                         else if (activation == 1)
-                            layers[layer][a * layerSizes[layer] + idxNeuron * layerWidth[layer] + j] = ReLU(sum);
+                            sum = ReLU(sum);
                         else
-                            layers[layer][a * layerSizes[layer] + idxNeuron * layerWidth[layer] + j] = TanH(sum);
+                            sum = TanH(sum);
+                        layers[layer][idx] = sum;
                     }
             // APPLY DROPOUT
             if (dropOutRatio > 0.0 && DOconv == 1)
-                for (idxNeuron = 0; idxNeuron < layerSizes[layer] * layerChan[layer]; idxNeuron++)
+                for (idx1 = 0; idx1 < layerSizes[layer] * layerChan[layer]; idx1++)
                 {
                     if (dp == 0)
-                        layers[layer][idxNeuron] = layers[layer][idxNeuron] * (1 - dropOutRatio);
+                        layers[layer][idx1] = layers[layer][idx1] * (1 - dropOutRatio);
                     else if (dp == 1)
-                        layers[layer][idxNeuron] = layers[layer][idxNeuron] * dropOut[layer][idxNeuron];
+                        layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
                 }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process convolution %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
         }
-        else if (layerType[layer] >= 2) // POOLING LAYER (2=max, 3=avg)
-            for (a = 0; a < layerChan[layer]; a++)
-                for (idxNeuron = 0; idxNeuron < layerWidth[layer]; idxNeuron++)
-                    for (j = 0; j < layerWidth[layer]; j++)
+        else if (layerType[layer] >= 2)
+        { // POOLING LAYER (2=max, 3=avg)
+            clock_t start, stop;
+            if (DISPLAYTIME)
+            {
+                start = clock();
+            }
+            for (int iChanOut = 0; iChanOut < layerChan[layer]; iChanOut++)
+                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
+                    for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
                     {
                         sum = 0.0;
                         pmax = -1e6;
-                        for (i2 = 0; i2 < layerConv[layer]; i2++)
-                            for (j2 = 0; j2 < layerConv[layer]; j2++)
+                        for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                        {
+                            for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
                             {
+                                int idxIn = (2 * iHautOut + iHautIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iLargOut + iLargIn) * layerChan[layer - 1] + iChanOut;
                                 if (layerType[layer] == 3)
-                                    sum += layers[layer - 1][a * layerSizes[layer - 1] + (idxNeuron * layerStride[layer] + i2) * layerWidth[layer - 1] + j * layerStride[layer] + j2];
-                                else if (layers[layer - 1][a * layerSizes[layer - 1] + (idxNeuron * layerStride[layer] + i2) * layerWidth[layer - 1] + j * layerStride[layer] + j2] > pmax)
-                                    pmax = layers[layer - 1][a * layerSizes[layer - 1] + (idxNeuron * layerStride[layer] + i2) * layerWidth[layer - 1] + j * layerStride[layer] + j2];
+                                    sum += layers[layer - 1][idxIn];
+                                else if (layers[layer - 1][idxIn] > pmax)
+                                    pmax = layers[layer - 1][idxIn];
                             }
+                        }
+                        int idxOut = iHautOut * layerChan[layer] * layerWidth[layer] + iLargOut * layerChan[layer] + iChanOut;
                         if (layerType[layer] == 3)
-                            layers[layer][a * layerSizes[layer] + idxNeuron * layerWidth[layer] + j] = sum / layerConvStep2[layer];
+                            layers[layer][idxOut] = sum / layerConvStep2[layer];
                         else
-                            layers[layer][a * layerSizes[layer] + idxNeuron * layerWidth[layer] + j] = pmax;
+                            layers[layer][idxOut] = pmax;
                     }
+            if (DISPLAYTIME)
+            {
+                stop = clock();
+                printf("Process pooling %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            }
+        }
         // APPLY DROPOUT
         if (dropOutRatio > 0.0 && DOpool == 1)
-            for (idxNeuron = 0; idxNeuron < layerSizes[layer] * layerChan[layer]; idxNeuron++)
+            for (idx1 = 0; idx1 < layerSizes[layer] * layerChan[layer]; idx1++)
             {
                 if (dp == 0)
-                    layers[layer][idxNeuron] = layers[layer][idxNeuron] * (1 - dropOutRatio);
+                    layers[layer][idx1] = layers[layer][idx1] * (1 - dropOutRatio);
                 else if (dp == 1)
-                    layers[layer][idxNeuron] = layers[layer][idxNeuron] * dropOut[layer][idxNeuron];
+                    layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
             }
+        // Save in file
+        if (SAVEVALUES)
+        {
+            char name[30];
+            sprintf(name, "sauve/layer%d_c.json", layer);
+            write_float_in_file(name, layers[layer], layerSizes[layer] * layerChan[layer]);
+        }
     }
-
+    clock_t start, stop;
+    if (DISPLAYTIME)
+    {
+        start = clock();
+    }
     // OUTPUT LAYER - SOFTMAX ACTIVATION
     esum = 0.0;
-    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER-1]; idxNeuron++)
+    for (int iOut = 0; iOut < layerSizes[MAXLAYER - 1]; iOut++)
     {
         sum = 0.0;
-        for (j = 0; j < layerSizes[MAXLAYER-2] + 1; j++)
-            sum += layers[MAXLAYER-2][j] * weights[MAXLAYER-1][idxNeuron * (layerSizes[MAXLAYER-2] + 1) + j];
-        layers[MAXLAYER-1][idxNeuron] = exp(sum);
-        if (layers[MAXLAYER-1][idxNeuron] > 1e30)
+        for (int iIn = 0; iIn < layerSizes[MAXLAYER - 2] + 1; iIn++)
+        {
+            float val = layers[MAXLAYER - 2][iIn];
+            float weight = weights[MAXLAYER - 1][iIn * (layerSizes[MAXLAYER - 1]) + iOut];
+            sum += val * weight;
+        }
+        //Bias
+        sum += weights[MAXLAYER - 1][layerSizes[MAXLAYER - 1]*layerSizes[MAXLAYER - 2] + iOut];
+        layers[MAXLAYER - 1][iOut] = exp(sum);
+        if (layers[MAXLAYER - 1][iOut] > 1e30)
             return -1; // GRADIENTS EXPLODED
-        esum += layers[MAXLAYER-1][idxNeuron];
+        esum += layers[MAXLAYER - 1][iOut];
     }
 
     // SOFTMAX FUNCTION
-    max = layers[MAXLAYER-1][0];
+    max = layers[MAXLAYER - 1][0];
     imax = 0;
-    for (idxNeuron = 0; idxNeuron < layerSizes[MAXLAYER-1]; idxNeuron++)
+    for (int iNeuron = 0; iNeuron < layerSizes[MAXLAYER - 1]; iNeuron++)
     {
-        if (layers[MAXLAYER-1][idxNeuron] > max)
+        if (layers[MAXLAYER - 1][iNeuron] > max)
         {
-            max = layers[MAXLAYER-1][idxNeuron];
-            imax = idxNeuron;
+            max = layers[MAXLAYER - 1][iNeuron];
+            imax = iNeuron;
         }
-        layers[MAXLAYER-1][idxNeuron] = layers[MAXLAYER-1][idxNeuron] / esum;
+        layers[MAXLAYER - 1][iNeuron] = layers[MAXLAYER - 1][iNeuron] / esum;
     }
-    prob = layers[MAXLAYER-1][imax]; // ugly use of global variable :-(
+    prob = layers[MAXLAYER - 1][imax]; // ugly use of global variable :-(
+    if (SAVEVALUES)
+    {
+        write_float_in_file("sauve/layer19_c.json", layers[19], layerSizes[19] * layerChan[19]);
+    }
+    if (DISPLAYTIME)
+    {
+        stop = clock();
+        printf("Process Output layer %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+    }
     // prob0 = layers[MAXLAYER-1][0];
     // prob1 = layers[MAXLAYER-1][2];
     // prob2 = layers[MAXLAYER-1][4];
@@ -1499,7 +1759,7 @@ int forwardProp(int image, int dp, int train, int lay)
 }
 
 /**********************************************************************/
-/*      NEURAL NETWORK                                                */
+/*      ACTIVATION FUNCTION                                           */
 /**********************************************************************/
 float ReLU(float x)
 {
@@ -1509,9 +1769,6 @@ float ReLU(float x)
         return 0;
 }
 
-/**********************************************************************/
-/*      NEURAL NETWORK                                                */
-/**********************************************************************/
 float TanH(float x)
 {
     return 2.0 / (1.0 + exp(-2 * x)) - 1.0;
