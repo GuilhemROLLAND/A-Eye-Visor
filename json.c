@@ -53,6 +53,36 @@ unsigned long fsize(char *file)
     return len;
 }
 
+int convertFloatToString(float f, char *c)
+{
+    int size = sprintf(c, "%.16f", f);
+    return size;
+}
+
+char *write_float_in_buffer(float *ptrToFloat, int nbrFloat)
+{
+    char *ret = calloc(sizeof(char), 30 * nbrFloat + 1);
+    char *ptrWrite = ret;
+    for (int i = 0; i < nbrFloat; i++)
+    {
+        char c[50];
+        int size = convertFloatToString(ptrToFloat[i], c);
+        memcpy(ptrWrite, c, size);
+        ptrWrite += size;
+        memcpy(ptrWrite, ",", 1);
+        ptrWrite++;
+    }
+    return ret;
+}
+
+int write_float_in_file(char *filename, float *ptrToFloat, int nbrFloat)
+{
+    char *buff = write_float_in_buffer(ptrToFloat, nbrFloat);
+    int ret = write_in_file(filename, buff);
+    free(buff);
+    return ret;
+}
+
 int get_int_in_json(char *buffer, char *param)
 {
     char *ptr = strstr(buffer, param);
@@ -62,8 +92,9 @@ int get_int_in_json(char *buffer, char *param)
     }
     int sizeParam = strlen(param);
     ptr += sizeParam;
-    ptr += 2; // Skip ":
-    return atoi(ptr);
+    ptr = go_to_number(ptr);
+    int val = atoi(ptr);
+    return val;
 }
 
 char *get_str_in_json(char *buffer, char *param)
@@ -79,7 +110,7 @@ char *get_str_in_json(char *buffer, char *param)
     int size = 0;
     for (size = 0; *(ptr + size) != '\"'; size++)
         ;
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
     return ret;
 }
@@ -111,8 +142,9 @@ char *get_tab_in_json(char *buffer, char *param)
         }
     };
     size++; // Get ]
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
+    *(ret + sizeof(char) * size) = 0;
     return ret;
 }
 
@@ -130,9 +162,9 @@ char *get_str_in_tab(char *tab, int idx)
         size--;
         tab++; // Skip "
     }
-    char *ret = malloc(sizeof(char) * size);
-    memcpy(ret, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", size + 1);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, tab, size);
+    *(ret + sizeof(char) * size) = 0;
     return ret;
 }
 
@@ -156,7 +188,7 @@ char *get_object_in_json(char *buffer, char *param)
         }
     }
     size++; // Get }
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, ptr, size);
     return ret;
 }
@@ -189,7 +221,7 @@ char *get_tab_in_tab(char *tab, int idx)
         }
     }
     size++; // Get ]
-    char *ret = malloc(sizeof(char) * size);
+    char *ret = calloc(size + 1, sizeof(char));
     memcpy(ret, tab, size);
     return ret;
 }
@@ -206,7 +238,7 @@ char *go_to_number(char *str)
 int get_size_of_float(char *str)
 {
     int size = 0;
-    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-') && ((*str) != '.')))
+    while (!((((*str) < '0') || ((*str) > '9')) && ((*str) != '-') && ((*str) != 'e') && ((*str) != '.')))
     {
         str++;
         size++;
@@ -228,26 +260,30 @@ int get_size_of_int(char *str)
 float get_float_in_string(char *str, int idx)
 {
     int size = 0;
-    for(int i; i<=idx; i++){
+    for (int i = 0; i <= idx; i++)
+    {
         str = go_to_number(str);
         size = get_size_of_float(str);
-        if (i != idx){
+        if (i != idx) // Wrong number, go forward
+        {
             str += size + 1;
         }
     }
-    char *buff[size];
+    char *buff = calloc(size + 1, sizeof(char));
     memcpy(buff, str, size);
     float val = atof((const char *)buff);
     return val;
 }
 
-int get_int_in_string(char*str, int idx)
+int get_int_in_string(char *str, int idx)
 {
     int size = 0;
-    for(int i; i<=idx; i++){
+    for (int i; i <= idx; i++)
+    {
         str = go_to_number(str);
         size = get_size_of_int(str);
-        if (i != idx){
+        if (i != idx)
+        {
             str += size + 1;
         }
     }

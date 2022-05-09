@@ -5,11 +5,7 @@
             "label": "C/C++: gcc-5 générer le fichier actif",
             "command": "/usr/bin/gcc-5",
             "args": [
-<<<<<<< HEAD
-=======
                 "json.c",
-                "preprocess_ddr.c",
->>>>>>> 5aad17153c41c6cb28be34e3ea61865b5f28b5f2
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
