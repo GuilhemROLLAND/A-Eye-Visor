@@ -7,7 +7,7 @@
 | Backward Propagation | HS     | Since memory disposition modified |
 
 ## Checklist memory
-On picture bateau3599.jpg with rescal_fl32.json and rescaling by hand  
+On picture bateau3599.jpg with rescal_fl32.json and rescaling with keras    
 | Type                 | Status Python          | Status C                         | Comments   |
 | :------------------- | :--------------------- | :------------------------------- | :--------- |
 | Chargement image raw | image_raw              | OK                               | Same       |

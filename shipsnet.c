@@ -13,10 +13,10 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define INFERENCEMODE 1
 #define TESTONONE 1
-#define SAVEVALUES 0
-#define DISPLAYTIME 1
+#define INFERENCEMODE 1
+#define SAVEVALUES 1
+#define DISPLAYTIME 0
 char filename[] = "rescal_fl32_96.json";
 
 #define WIDTH 224
@@ -441,12 +441,12 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
         }
         else if (mark == 0)
         {
-            trainImages[k][c] = d / imgScale - imgBias;
+            trainImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             c++;
         }
         if (mark >= 1)
         {
-            trainImages[k][c] = d / imgScale - imgBias;
+            trainImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             if (c >= trainColumns - 1)
                 k++;
             c = 0;
@@ -583,12 +583,12 @@ int loadTest(int ct, int sh, int rc, float imgScale, float imgBias)
         }
         else if (mark == 0)
         {
-            testImages[k][c] = d / imgScale - imgBias;
+            testImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             c++;
         }
         if (mark >= 1)
         {
-            testImages[k][c] = d / imgScale - imgBias;
+            testImages[k][c] = d * (((float)1.) / imgScale) - imgBias;
             if (c >= testColumns - 1)
                 k++;
             c = 0;
