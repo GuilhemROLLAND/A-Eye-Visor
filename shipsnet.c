@@ -13,7 +13,7 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define TESTONONE 0
+#define TESTONONE 1
 #define INFERENCEMODE 1
 #define SAVEVALUES 0
 #define DISPLAYTIME 0
@@ -184,8 +184,8 @@ int main(int argc, char *argv[])
     if (argc > 1)
         printf("Ignoring unknown argument(s)\n");
     srand(time(0));
-    pthread_attr_init(&stackSizeAttribute);
-    pthread_attr_setstacksize(&stackSizeAttribute, requiredStackSize);
+    // pthread_attr_init(&stackSizeAttribute);
+    // pthread_attr_setstacksize(&stackSizeAttribute, requiredStackSize);
 
     /**********************************************************************/
     /*      LOADING TRAINING&TEST DATASET                                 */
