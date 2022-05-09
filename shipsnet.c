@@ -13,9 +13,9 @@
 #define IMPORTARCHFROMJSON 1
 #define IMPORTPARAMFROMJSON 1
 #define LOADDATASET 1
-#define TESTONONE 1
+#define TESTONONE 0
 #define INFERENCEMODE 1
-#define SAVEVALUES 1
+#define SAVEVALUES 0
 #define DISPLAYTIME 0
 char filename[] = "rescal_fl32_96.json";
 
@@ -364,7 +364,7 @@ int loadTrain(int ct, double validRatio, int sh, float imgScale, float imgBias)
     char name[80] = "shipsnet_train.csv";
     if (TESTONONE)
     {
-        strcpy(name, "shipsnet_one.csv");
+        strcpy(name, "shipsnet_one_V2.csv");
     }
     printf("Loading %s\n", name);
     if (access(name, F_OK) == 0)
@@ -1612,13 +1612,15 @@ int forwardProp(int image, int dp, int train, int lay)
                             for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
                                 for (int iProfIn = 0; iProfIn < layerChan[layer - 1]; iProfIn++)
                                 {
-                                    int i3 = iLargOut + iLargIn - dc;
-                                    int j3 = iHautOut + iHautIn - dc;
+                                    int j3 = iLargOut + iLargIn - dc;
+                                    int i3 = iHautOut + iHautIn - dc;
                                     int idxWeights = iFilterOut + iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer];
                                     float weight = weights[layer][idxWeights];
                                     if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
                                     {
                                         float val = layers[layer - 1][i3 * layerWidth[layer - 1] * layerChan[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
+                                        // printf("val(%d;%d;%d) = %.16f\n", i3, j3, iProfIn, val);
+                                        // printf("weight(%d;%d;%d;%d) = %.16f\n", iFilterOut, iHautIn, iLargIn, iProfIn, weight);
                                         sum += val * weight;
                                     }
                                     else
@@ -1665,14 +1667,16 @@ int forwardProp(int image, int dp, int train, int lay)
                         sum = 0.0;
                         pmax = -1e6;
                         for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                        {
                             for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
                             {
-                                int idxIn = (2 * iLargOut + iLargIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iHautOut + iHautIn) * layerChan[layer - 1] + iChanOut;
+                                int idxIn = (2 * iHautOut + iHautIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iLargOut + iLargIn) * layerChan[layer - 1] + iChanOut;
                                 if (layerType[layer] == 3)
                                     sum += layers[layer - 1][idxIn];
                                 else if (layers[layer - 1][idxIn] > pmax)
                                     pmax = layers[layer - 1][idxIn];
                             }
+                        }
                         int idxOut = iHautOut * layerChan[layer] * layerWidth[layer] + iLargOut * layerChan[layer] + iChanOut;
                         if (layerType[layer] == 3)
                             layers[layer][idxOut] = sum / layerConvStep2[layer];
@@ -1713,7 +1717,13 @@ int forwardProp(int image, int dp, int train, int lay)
     {
         sum = 0.0;
         for (int iIn = 0; iIn < layerSizes[MAXLAYER - 2] + 1; iIn++)
-            sum += layers[MAXLAYER - 2][iIn] * weights[MAXLAYER - 1][iOut * (layerSizes[MAXLAYER - 2] + 1) + iIn];
+        {
+            float val = layers[MAXLAYER - 2][iIn];
+            float weight = weights[MAXLAYER - 1][iIn * (layerSizes[MAXLAYER - 1]) + iOut];
+            sum += val * weight;
+        }
+        //Bias
+        sum += weights[MAXLAYER - 1][layerSizes[MAXLAYER - 1]*layerSizes[MAXLAYER - 2] + iOut];
         layers[MAXLAYER - 1][iOut] = exp(sum);
         if (layers[MAXLAYER - 1][iOut] > 1e30)
             return -1; // GRADIENTS EXPLODED
