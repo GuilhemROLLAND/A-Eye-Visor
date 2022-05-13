@@ -99,4 +99,19 @@
      */
     unsigned char* maxPooling(unsigned char* img, int width, int height, unsigned char poolingLength);
 
+    /**
+     * @brief Load a bmp from a file path and store the data in RGB into a unsigned char[]
+     * @param *filename 
+     * @param *bitmapinfoheader 
+     * @return img in unsigned char[]
+     */
+    unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader)
+    
+    /**
+     * @brief Execute the global preprocess of an img (loading, resize, pooling)
+     * 
+     * @param filename path to the img
+     * @return unsigned char* the preprocessed img
+     */
+    unsigned char* preprocess(char *filename);
 #endif

@@ -67,10 +67,7 @@ unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader
 
 int main() 
 {
-    printf("allo ? \n");
     BITMAPINFOHEADER *bitmapinfoheader;
-    if ((bitmapinfoheader = (BITMAPINFOHEADER*) malloc(sizeof(BITMAPINFOHEADER))) == NULL)
-        printf("erreur allocation mémoire\n");
     unsigned char *img = LoadBitmapFile("pict.bmp", bitmapinfoheader);
     for (int i = 0; i < 20; i++)
     {
