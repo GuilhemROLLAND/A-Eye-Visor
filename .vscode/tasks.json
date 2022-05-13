@@ -2,37 +2,13 @@
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: gcc-5 générer le fichier actif",
-            "command": "/usr/bin/gcc-5",
-            "args": [
-                "json.c",
-                "preprocess.c",
-                "-fdiagnostics-color=always",
-                "-g",
-                "${file}",
-                "-o",
-                "${fileDirname}/${fileBasenameNoExtension}",
-                "-lpthread",
-                "-lm"
-            ],
-            "options": {
-                "cwd": "${fileDirname}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": "build",
-            "detail": "Tâche générée par le débogueur."
-        },
-        {
-            "type": "cppbuild",
             "label": "C/C++: gcc générer le fichier actif",
             "command": "/usr/bin/gcc",
             "args": [
                 "json.c",
-                "preprocess.c",
+                // "preprocess.c",
                 "-fdiagnostics-color=always",
-                "-g",
+                "-pg",
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",

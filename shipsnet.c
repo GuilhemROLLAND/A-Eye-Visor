@@ -19,7 +19,7 @@
 #define DISPLAYTIME 0
 char filename[] = "weights_shipsnet_wo_rescale.json";
 
-#define WIDTH 224
+#define WIDTH 240
 #define COLORS 3
 #define MAXLAYER 20
 
@@ -41,6 +41,9 @@ int backProp(int x, float *ent, int ep);
 int forwardProp(int x, int dp, int train, int lay);
 float ReLU(float x);
 float TanH(float x);
+void fully_connected_process(int idxLayer, int dp);
+void convolution_process(int idxLayer, int dp);
+void pooling_process(int layer, int dp);
 
 // TRAINING AND VALIDATION DATA
 float (*trainImages)[WIDTH * WIDTH * COLORS] = 0;
@@ -1558,137 +1561,15 @@ int forwardProp(int image, int dp, int train, int lay)
 
         if (layerType[layer] == 0)
         { // FULLY CONNECTED LAYER
-            clock_t start, stop;
-            if (DISPLAYTIME)
-            {
-                start = clock();
-            }
-            for (int iOut = 0; iOut < layerSizes[layer]; iOut++)
-            {
-                if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[layer][iOut] == 1)
-                {
-                    sum = 0.0;
-                    for (int iIn = 0; iIn < layerSizes[layer - 1] * layerChan[layer - 1]; iIn++)
-                    {
-                        int idxWeigth = iIn * layerSizes[layer] + iOut;
-                        sum += layers[layer - 1][iIn] * weights[layer][idxWeigth];
-                    }
-                    // Bias
-                    sum += weights[layer][layerSizes[layer - 1] * layerChan[layer - 1] * layerSizes[layer] + iOut];
-                    if (activation == 0)
-                        layers[layer][iOut] = sum;
-                    else if (activation == 1)
-                        layers[layer][iOut] = ReLU(sum);
-                    else
-                        layers[layer][iOut] = TanH(sum);
-                    // if (dropOutRatio>0.0 && dp==1) layers[layer][i] = layers[layer][i]  / (1-dropOutRatio);
-                    if (dropOutRatio > 0.0 && dp == 0 && DOdense == 1)
-                        layers[layer][iOut] = layers[layer][iOut] * (1 - dropOutRatio);
-                }
-                else
-                    layers[layer][iOut] = 0.0;
-            }
-            if (DISPLAYTIME)
-            {
-                stop = clock();
-                printf("Process fully connected %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
-            }
+            fully_connected_process(layer, dp);
         }
         else if (layerType[layer] == 1)
         { // CONVOLUTION LAYER
-            clock_t start, stop;
-            if (DISPLAYTIME)
-            {
-                start = clock();
-            }
-            dc = 0;
-            if (layerPad[layer] == 1)
-                dc = layerConv[layer] / 2;
-            for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
-                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
-                    for (int iFilterOut = 0; iFilterOut < layerChan[layer]; iFilterOut++)
-                    {
-                        sum = 0.0;
-                        for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
-                            for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
-                                for (int iProfIn = 0; iProfIn < layerChan[layer - 1]; iProfIn++)
-                                {
-                                    int j3 = iLargOut + iLargIn - dc;
-                                    int i3 = iHautOut + iHautIn - dc;
-                                    int idxWeights = iFilterOut + iHautIn * layerConv[layer] * layerChan[layer - 1] * layerChan[layer] + iLargIn * layerChan[layer - 1] * layerChan[layer] + iProfIn * layerChan[layer];
-                                    float weight = weights[layer][idxWeights];
-                                    if (i3 >= 0 && i3 < layerWidth[layer - 1] && j3 >= 0 && j3 < layerWidth[layer - 1])
-                                    {
-                                        float val = layers[layer - 1][i3 * layerWidth[layer - 1] * layerChan[layer - 1] + j3 * layerChan[layer - 1] + iProfIn];
-                                        // printf("val(%d;%d;%d) = %.16f\n", i3, j3, iProfIn, val);
-                                        // printf("weight(%d;%d;%d;%d) = %.16f\n", iFilterOut, iHautIn, iLargIn, iProfIn, weight);
-                                        sum += val * weight;
-                                    }
-                                    else
-                                    {
-                                        sum -= imgBias * weight;
-                                    }
-                                }
-                        sum += weights[layer][layerConvStep[layer] * layerChan[layer] + iFilterOut];
-                        int idx = iHautOut * layerWidth[layer] * layerChan[layer] + iLargOut * layerChan[layer] + iFilterOut;
-                        if (activation == 0)
-                            sum = sum;
-                        else if (activation == 1)
-                            sum = ReLU(sum);
-                        else
-                            sum = TanH(sum);
-                        layers[layer][idx] = sum;
-                    }
-            // APPLY DROPOUT
-            if (dropOutRatio > 0.0 && DOconv == 1)
-                for (idx1 = 0; idx1 < layerSizes[layer] * layerChan[layer]; idx1++)
-                {
-                    if (dp == 0)
-                        layers[layer][idx1] = layers[layer][idx1] * (1 - dropOutRatio);
-                    else if (dp == 1)
-                        layers[layer][idx1] = layers[layer][idx1] * dropOut[layer][idx1];
-                }
-            if (DISPLAYTIME)
-            {
-                stop = clock();
-                printf("Process convolution %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
-            }
+            convolution_process(layer, dp);
         }
         else if (layerType[layer] >= 2)
         { // POOLING LAYER (2=max, 3=avg)
-            clock_t start, stop;
-            if (DISPLAYTIME)
-            {
-                start = clock();
-            }
-            for (int iChanOut = 0; iChanOut < layerChan[layer]; iChanOut++)
-                for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
-                    for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
-                    {
-                        sum = 0.0;
-                        pmax = -1e6;
-                        for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
-                        {
-                            for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
-                            {
-                                int idxIn = (2 * iHautOut + iHautIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iLargOut + iLargIn) * layerChan[layer - 1] + iChanOut;
-                                if (layerType[layer] == 3)
-                                    sum += layers[layer - 1][idxIn];
-                                else if (layers[layer - 1][idxIn] > pmax)
-                                    pmax = layers[layer - 1][idxIn];
-                            }
-                        }
-                        int idxOut = iHautOut * layerChan[layer] * layerWidth[layer] + iLargOut * layerChan[layer] + iChanOut;
-                        if (layerType[layer] == 3)
-                            layers[layer][idxOut] = sum / layerConvStep2[layer];
-                        else
-                            layers[layer][idxOut] = pmax;
-                    }
-            if (DISPLAYTIME)
-            {
-                stop = clock();
-                printf("Process pooling %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
-            }
+            pooling_process(layer, dp);
         }
         // APPLY DROPOUT
         if (dropOutRatio > 0.0 && DOpool == 1)
@@ -1773,4 +1654,147 @@ float ReLU(float x)
 float TanH(float x)
 {
     return 2.0 / (1.0 + exp(-2 * x)) - 1.0;
+}
+
+void fully_connected_process(int idxLayer, int dp)
+{
+    float sum;
+    clock_t start, stop;
+    if (DISPLAYTIME)
+    {
+        start = clock();
+    }
+    for (int iOut = 0; iOut < layerSizes[idxLayer]; iOut++)
+    {
+        if (dropOutRatio == 0.0 || dp == 0 || DOdense == 0 || dropOut[idxLayer][iOut] == 1)
+        {
+            sum = 0.0;
+            for (int iIn = 0; iIn < layerSizes[idxLayer - 1] * layerChan[idxLayer - 1]; iIn++)
+            {
+                int idxWeigth = iIn * layerSizes[idxLayer] + iOut;
+                sum += layers[idxLayer - 1][iIn] * weights[idxLayer][idxWeigth];
+            }
+            // Bias
+            sum += weights[idxLayer][layerSizes[idxLayer - 1] * layerChan[idxLayer - 1] * layerSizes[idxLayer] + iOut];
+            if (activation == 0)
+                layers[idxLayer][iOut] = sum;
+            else if (activation == 1)
+                layers[idxLayer][iOut] = ReLU(sum);
+            else
+                layers[idxLayer][iOut] = TanH(sum);
+            // if (dropOutRatio>0.0 && dp==1) layers[idxLayer][i] = layers[idxLayer][i]  / (1-dropOutRatio);
+            if (dropOutRatio > 0.0 && dp == 0 && DOdense == 1)
+                layers[idxLayer][iOut] = layers[idxLayer][iOut] * (1 - dropOutRatio);
+        }
+        else
+            layers[idxLayer][iOut] = 0.0;
+    }
+    if (DISPLAYTIME)
+    {
+        stop = clock();
+        printf("Process fully connected %d in %f \n", idxLayer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+    }
+    return;
+}
+
+void convolution_process(int idxLayer, int dp)
+{
+    float sum;
+    clock_t start, stop;
+    if (DISPLAYTIME)
+    {
+        start = clock();
+    }
+    int dc = 0;
+    if (layerPad[idxLayer] == 1)
+        dc = layerConv[idxLayer] / 2;
+    for (int iHautOut = 0; iHautOut < layerWidth[idxLayer]; iHautOut++)
+        for (int iLargOut = 0; iLargOut < layerWidth[idxLayer]; iLargOut++)
+            for (int iFilterOut = 0; iFilterOut < layerChan[idxLayer]; iFilterOut++)
+            {
+                sum = 0.0;
+                for (int iHautIn = 0; iHautIn < layerConv[idxLayer]; iHautIn++)
+                    for (int iLargIn = 0; iLargIn < layerConv[idxLayer]; iLargIn++)
+                        for (int iProfIn = 0; iProfIn < layerChan[idxLayer - 1]; iProfIn++)
+                        {
+                            int j3 = iLargOut + iLargIn - dc;
+                            int i3 = iHautOut + iHautIn - dc;
+                            int idxWeights = iFilterOut + iHautIn * layerConv[idxLayer] * layerChan[idxLayer - 1] * layerChan[idxLayer] + iLargIn * layerChan[idxLayer - 1] * layerChan[idxLayer] + iProfIn * layerChan[idxLayer];
+                            float weight = weights[idxLayer][idxWeights];
+                            if (i3 >= 0 && i3 < layerWidth[idxLayer - 1] && j3 >= 0 && j3 < layerWidth[idxLayer - 1])
+                            {
+                                float val = layers[idxLayer - 1][i3 * layerWidth[idxLayer - 1] * layerChan[idxLayer - 1] + j3 * layerChan[idxLayer - 1] + iProfIn];
+                                // printf("val(%d;%d;%d) = %.16f\n", i3, j3, iProfIn, val);
+                                // printf("weight(%d;%d;%d;%d) = %.16f\n", iFilterOut, iHautIn, iLargIn, iProfIn, weight);
+                                sum += val * weight;
+                            }
+                            else
+                            {
+                                sum -= imgBias * weight;
+                            }
+                        }
+                sum += weights[idxLayer][layerConvStep[idxLayer] * layerChan[idxLayer] + iFilterOut];
+                int idx = iHautOut * layerWidth[idxLayer] * layerChan[idxLayer] + iLargOut * layerChan[idxLayer] + iFilterOut;
+                if (activation == 0)
+                    sum = sum;
+                else if (activation == 1)
+                    sum = ReLU(sum);
+                else
+                    sum = TanH(sum);
+                layers[idxLayer][idx] = sum;
+            }
+    // APPLY DROPOUT
+    if (dropOutRatio > 0.0 && DOconv == 1)
+        for (int idx1 = 0; idx1 < layerSizes[idxLayer] * layerChan[idxLayer]; idx1++)
+        {
+            if (dp == 0)
+                layers[idxLayer][idx1] = layers[idxLayer][idx1] * (1 - dropOutRatio);
+            else if (dp == 1)
+                layers[idxLayer][idx1] = layers[idxLayer][idx1] * dropOut[idxLayer][idx1];
+        }
+    if (DISPLAYTIME)
+    {
+        stop = clock();
+        printf("Process convolution %d in %f \n", idxLayer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+    }
+    return;
+}
+
+void pooling_process(int layer, int dp)
+{
+    float sum, pmax;
+    clock_t start, stop;
+    if (DISPLAYTIME)
+    {
+        start = clock();
+    }
+    for (int iChanOut = 0; iChanOut < layerChan[layer]; iChanOut++)
+        for (int iLargOut = 0; iLargOut < layerWidth[layer]; iLargOut++)
+            for (int iHautOut = 0; iHautOut < layerWidth[layer]; iHautOut++)
+            {
+                sum = 0.0;
+                pmax = -1e6;
+                for (int iLargIn = 0; iLargIn < layerConv[layer]; iLargIn++)
+                {
+                    for (int iHautIn = 0; iHautIn < layerConv[layer]; iHautIn++)
+                    {
+                        int idxIn = (2 * iHautOut + iHautIn) * layerWidth[layer - 1] * layerChan[layer - 1] + (2 * iLargOut + iLargIn) * layerChan[layer - 1] + iChanOut;
+                        if (layerType[layer] == 3)
+                            sum += layers[layer - 1][idxIn];
+                        else if (layers[layer - 1][idxIn] > pmax)
+                            pmax = layers[layer - 1][idxIn];
+                    }
+                }
+                int idxOut = iHautOut * layerChan[layer] * layerWidth[layer] + iLargOut * layerChan[layer] + iChanOut;
+                if (layerType[layer] == 3)
+                    layers[layer][idxOut] = sum / layerConvStep2[layer];
+                else
+                    layers[layer][idxOut] = pmax;
+            }
+    if (DISPLAYTIME)
+    {
+        stop = clock();
+        printf("Process pooling %d in %f \n", layer, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+    }
+    return;
 }
