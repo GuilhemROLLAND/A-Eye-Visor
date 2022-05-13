@@ -1,13 +1,9 @@
 from msilib.schema import File
-import random # for random value
 import numpy as np # linear algebra
-import matplotlib
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import matplotlib.pyplot as plt # plotting 
 from PIL import Image # Image processing
-import json  #json file I/O
 from mpl_toolkits.basemap import Basemap
-import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -17,12 +13,8 @@ import os
 from torchvision.io import read_image
 from torchvision.io import decode_image
 from torch.utils.data import DataLoader
-import time
 from PIL import Image
-import PIL
 import pathlib
-import csv, shutil
-import pandas as pd
 import glob
 
 def saveAsJPEG(array,pos):
