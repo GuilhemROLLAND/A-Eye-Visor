@@ -224,14 +224,6 @@ int main(int argc, char *argv[])
     {
         validRatio = 1.;
     }
-    if (LOADDATASET)
-    {
-        printf("Load train Set with validRatio = %f\n", validRatio);
-        int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
-        printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
-        // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
-        // printf("Loaded %d rows test, %d features\n", test, testColumns);
-    }
 
     /**********************************************************************/
     /*      INIT NET                                                      */
@@ -360,7 +352,16 @@ int main(int argc, char *argv[])
         {
             if (WAITFORSIGNAL)
             {
-                while(waitOnSIGUSR1Signal()!=SIGUSR1);
+                while (waitOnSIGUSR1Signal() != SIGUSR1)
+                    ;
+            }
+            if (LOADDATASET)
+            {
+                printf("Load train Set with validRatio = %f\n", validRatio);
+                int nbRows = loadTrain(rows, validRatio, removeHeader, divideBy, subtractBy);
+                printf("Loaded %d rows training, %d features, vSetSize=%d\n", nbRows, trainColumns, validSetSize);
+                // int test = loadTest(rows, removeHeader, removeCol1, divideBy, subtractBy);
+                // printf("Loaded %d rows test, %d features\n", test, testColumns);
             }
             printf("start processing \n");
             runInference(NULL);
