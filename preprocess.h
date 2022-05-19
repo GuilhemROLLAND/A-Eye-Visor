@@ -92,10 +92,10 @@
      * @brief performs a max pooling on the input img 
      * 
      * @param img input img
-     * @param width of the img
-     * @param height of the img
-     * @param poolingLength size of the pooling window (ex poolingLength = 2 is a (2,2) window)
-     * @return unsigned char* maxPooled img
+     * @param width of the input img
+     * @param height of the input img
+     * @param poolingLength side of the square pooling window (ex poolingLength = 2 is a (2,2) window)
+     * @return unsigned char* maxPooled img allocated
      */
     unsigned char* maxPooling(unsigned char* img, int width, int height, unsigned char poolingLength);
 

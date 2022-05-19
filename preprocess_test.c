@@ -192,7 +192,7 @@ void testMaxPooling()
     0,0,0,
     254,0,0
     };
-    unsigned char *ret = maxPooling(tabTest, 12, 4, 4);
+    unsigned char *ret = maxPooling(tabTest, 4, 4, 2);
     unsigned char result[12] = {0,0,254,254,0,0,0,0,254,254,0,0};
     int count = 0;
     for (int i = 0; i<12; i++)

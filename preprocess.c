@@ -12,18 +12,35 @@ unsigned char *readImg(unsigned char *addr, int width, int height)
     return img;
 }
 
-unsigned char *resizeImg(unsigned char *bmpImg, int width, int height, int pixelsToCrop)
+unsigned char *resizeImg(unsigned char *bmpImg, int width_img, int height_img, int pixelsToCrop)
 {
     unsigned char *bmpImgResized;
-    if ((bmpImgResized = malloc((width * height * 3 - pixelsToCrop * 3) * sizeof(unsigned char))) == NULL)
+    if ((bmpImgResized = malloc((width_img * height_img * 3 - pixelsToCrop * 3) * sizeof(unsigned char))) == NULL)
         printf("erreur allocation mémoire \n");
-    for (int n = 0; n < height; n++)
+    int out_width = width_img - pixelsToCrop;
+    int out_heigth = height_img;
+    int colors = 3;
+    for (int idx_out_height = 0; idx_out_height < out_heigth; idx_out_height++)
     {
-        for (int i = ((pixelsToCrop / 2) * 3 + (n * width) * 3); i < ((width * 3 * (n + 1)) - (pixelsToCrop / 2) * 3); i++)
+        for (int idx_out_width = 0; idx_out_width < out_width; idx_out_width++)
         {
-            bmpImgResized[i - ((pixelsToCrop / 2) * 3 + (height * (n)))] = bmpImg[i];
+            for (int color = 0; color < colors; color++)
+            {
+                int idx_in_width = idx_out_width + pixelsToCrop / 2;
+                int idx_in_height = idx_out_height;
+                bmpImgResized[(idx_out_height * out_width + idx_out_width) * colors + color] =
+                    bmpImg[idx_out_height * width_img * colors + idx_in_width * colors + color];
+            }
         }
     }
+    // for (int height = 0; height < height_img; height++)
+    // {
+    //     for (int width = (((pixelsToCrop / 2) * 3) + ((height * width_img) * 3)); width < ((width_img * (height + 1) * 3) - ((pixelsToCrop / 2) * 3)); width++)
+    //     {
+    //         bmpImgResized[width - ((pixelsToCrop / 2) * 3 + (width_img * (height)))] = bmpImg[width];
+    //         bmpImgResized[width_img * height + width] = bmpImg[width];
+    //     }
+    // }
     return bmpImgResized;
 }
 
@@ -122,70 +139,91 @@ unsigned char *maxPooling(unsigned char *img, int width, int height, unsigned ch
     unsigned char pxR[(height * width) / 3], pxG[(height * width) / 3], pxB[(height * width) / 3];
     unsigned char count = 0;
     unsigned char *imgPooled;
-    if ((imgPooled = (unsigned char *)malloc(((width * height) / 2) * sizeof(unsigned char))) == NULL)
+    if ((imgPooled = (unsigned char *)malloc((width / 2 * height / 2) * 3 * sizeof(unsigned char))) == NULL)
         printf("erreur allocation mémoire \n");
-    for (int i = 0; i < (width * height) / (3 * poolingLength); i)
-    {
-        for (int n = 0; n < poolingLength; n++)
-        {
-            if (n == 1)
+
+    int colors = 3;
+    int pmax = 0;
+    for (int iColor = 0; iColor < colors; iColor++)
+        for (int iLargOut = 0; iLargOut < width / poolingLength; iLargOut++)
+            for (int iHautOut = 0; iHautOut < height / poolingLength; iHautOut++)
             {
-                pxR[idx] = img[countR];
-                pxG[idx] = img[countG];
-                pxB[idx] = img[countB];
-                countR += (width - 3);
-                countG += (width - 3);
-                countB += (width - 3);
-                idx++;
-                continue;
+                pmax = 0;
+                for (int iLargIn = 0; iLargIn < poolingLength; iLargIn++)
+                {
+                    for (int iHautIn = 0; iHautIn < poolingLength; iHautIn++)
+                    {
+                        int idxIn = (poolingLength * iHautOut + iHautIn) * width * colors + (poolingLength * iLargOut + iLargIn) * colors + iColor;
+                        if (img[idxIn] > pmax)
+                            pmax = img[idxIn];
+                    }
+                }
+                int idxOut = iHautOut * colors * width / poolingLength + iLargOut * colors + iColor;
+                imgPooled[idxOut] = pmax;
             }
-            pxR[idx] = img[countR];
-            pxG[idx] = img[countG];
-            pxB[idx] = img[countB];
-            countR += 3;
-            countG += 3;
-            countB += 3;
-            idx++;
-        }
-        i++;
-        if (i % 2 != 0)
-        {
-            countR = width * ((i)-0.5);
-            countG = width * ((i)-0.5) + 1;
-            countB = width * ((i)-0.5) + 2;
-        }
-    }
-    for (int i = 0; i < (width * height) / (3 * poolingLength); i++)
-    {
-        maxR = 0;
-        maxG = 0;
-        maxB = 0;
-        for (int n = 0; n < poolingLength; n++)
-        {
-            if (pxR[count] > maxR)
-                maxR = pxR[count];
-            if (pxG[count] > maxG)
-                maxG = pxG[count];
-            if (pxB[count] > maxB)
-                maxB = pxB[count];
-            count++;
-        }
-        pxR[i] = maxR;
-        pxG[i] = maxG;
-        pxB[i] = maxB;
-    }
-    countR = 0;
-    countG = 1;
-    countB = 2;
-    for (int i = 0; i < poolingLength; i++)
-    {
-        imgPooled[countR] = pxR[i];
-        imgPooled[countG] = pxG[i];
-        imgPooled[countB] = pxB[i];
-        countR += 3;
-        countG += 3;
-        countB += 3;
-    }
+
+    // for (int i = 0; i < (width * height) / (3 * poolingLength); i)
+    // {
+    //     for (int n = 0; n < poolingLength; n++)
+    //     {
+    //         if (n == 1)
+    //         {
+    //             pxR[idx] = img[countR];
+    //             pxG[idx] = img[countG];
+    //             pxB[idx] = img[countB];
+    //             countR += (width - 3);
+    //             countG += (width - 3);
+    //             countB += (width - 3);
+    //             idx++;
+    //             continue;
+    //         }
+    //         pxR[idx] = img[countR];
+    //         pxG[idx] = img[countG];
+    //         pxB[idx] = img[countB];
+    //         countR += 3;
+    //         countG += 3;
+    //         countB += 3;
+    //         idx++;
+    //     }
+    //     i++;
+    //     if (i % 2 != 0)
+    //     {
+    //         countR = width * ((i)-0.5);
+    //         countG = width * ((i)-0.5) + 1;
+    //         countB = width * ((i)-0.5) + 2;
+    //     }
+    // }
+    // for (int i = 0; i < (width * height) / (3 * poolingLength); i++)
+    // {
+    //     maxR = 0;
+    //     maxG = 0;
+    //     maxB = 0;
+    //     for (int n = 0; n < poolingLength; n++)
+    //     {
+    //         if (pxR[count] > maxR)
+    //             maxR = pxR[count];
+    //         if (pxG[count] > maxG)
+    //             maxG = pxG[count];
+    //         if (pxB[count] > maxB)
+    //             maxB = pxB[count];
+    //         count++;
+    //     }
+    //     pxR[i] = maxR;
+    //     pxG[i] = maxG;
+    //     pxB[i] = maxB;
+    // }
+    // countR = 0;
+    // countG = 1;
+    // countB = 2;
+    // for (int i = 0; i < poolingLength; i++)
+    // {
+    //     imgPooled[countR] = pxR[i];
+    //     imgPooled[countG] = pxG[i];
+    //     imgPooled[countB] = pxB[i];
+    //     countR += 3;
+    //     countG += 3;
+    //     countB += 3;
+    // }
     return imgPooled;
 }
 
@@ -323,7 +361,7 @@ int encodeInCSV(unsigned char *img, int length)
         return -1;
     }
     char *tab = calloc(sizeof(char), 4 * length);
-    char * ptr =  tab;
+    char *ptr = tab;
     for (int i = 0; i < length; i++)
     {
         ptr += sprintf(ptr, "%d", img[i]);
@@ -342,11 +380,11 @@ void preprocess(char *filename)
     if ((bitmapinfoheader = malloc(sizeof(BITMAPINFOHEADER))) == NULL)
         printf("erreur allocation memoire\n");
     unsigned char *img = LoadBitmapFile(filename, bitmapinfoheader);
-    encodageBMP(img, 640, 480);
     unsigned char *resizedimg = resizeImg(img, 640, 480, 160);
     free(img);
     unsigned char *pooledImg = maxPooling(resizedimg, 480, 480, 2);
     free(resizedimg);
+    encodageBMP(pooledImg, 240,240);
     encodeInCSV(pooledImg, 172800);
     free(pooledImg);
 }
