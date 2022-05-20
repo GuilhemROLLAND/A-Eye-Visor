@@ -1367,7 +1367,7 @@ void *runForwardProp(void *arg)
         if(!INFERENCE)
             printf("Process %d/%d pics (%f sec/pic) with %.2f good predictions\r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, 100.0 * s2 / (idxImage + 1));
         else
-            printf("Process %d/%d pics (%f sec/pic) \r", idxImage + 1, validSetSize, ((float)(stop - start)) / (float)CLOCKS_PER_SEC);
+            printf("Process %d/%d pics (%f sec/pic) with pred = %d \r", idxImage + 1, testSizeI, ((float)(stop - start)) / (float)CLOCKS_PER_SEC, pred);
         fflush(stdout);
     }
     printf("\n");
