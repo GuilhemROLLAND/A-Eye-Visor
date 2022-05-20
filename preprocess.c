@@ -327,9 +327,13 @@ int encodeInCSV(unsigned char *img, int length)
         {
             ptr += sprintf(ptr, ",");
         }
+        else
+        {
+            ptr += sprintf(ptr, "\n");
+        }
     }
-    fwrite(tab, (int)ptr - (int)tab, 1, file);
-    int size = (int)ptr - (int)tab;
+    fwrite(tab, ptr - tab, 1, file);
+    int size = ptr - tab;
     free(tab);
     return size;
 }
