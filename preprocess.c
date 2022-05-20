@@ -320,20 +320,29 @@ int encodeInCSV(unsigned char *img, int length)
     }
     char *tab = calloc(sizeof(char), 4 * length);
     char *ptr = tab;
+    char retourLigne = '\n';
+    char virgule = ',';
+    int size = 0;
     for (int i = 0; i < length; i++)
     {
-        ptr += sprintf(ptr, "%d", img[i]);
+        int nbr_char = sprintf(ptr, "%d", img[i]);
+        ptr += nbr_char;
+        size += nbr_char;
         if (i != length - 1)
         {
-            ptr += sprintf(ptr, ",");
+            *ptr = ',';
+            ptr++;
+            size++;
         }
         else
         {
-            ptr += sprintf(ptr, "\n");
+            *ptr = '\n';
+            ptr++;
+            size++;
         }
     }
-    fwrite(tab, ptr - tab, 1, file);
-    int size = ptr - tab;
+    int nbr_write = fwrite(tab, 1, size, file);
+    fclose(file);
     free(tab);
     return size;
 }

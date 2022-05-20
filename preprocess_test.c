@@ -210,12 +210,12 @@ void testMaxPooling()
 int main() 
 {
     // testReadImgBmp();
-    testavgPooling();
+    // testavgPooling();
     // testResize();
     // testRescaling();
     // testMaxPooling();
     // testEncodeCSV();
-    // preprocess("../temp.bmp");
+    preprocess("../temp.bmp");
     return 0; 
 }
 
