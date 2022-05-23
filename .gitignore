@@ -61,3 +61,6 @@ layers
 sauve
 preprocess_test
 temp.bmp
+pipeTest/init
+pipeTest/sender
+pipeTest/receiver
