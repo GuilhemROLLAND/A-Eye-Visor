@@ -61,3 +61,10 @@ layers
 sauve
 preprocess_test
 temp.bmp
+pipeTest/init
+pipeTest/sender
+pipeTest/receiver
+pipe/sender
+pipe/receiver
+pipe/init
+pipe/.vscode/tasks.json
